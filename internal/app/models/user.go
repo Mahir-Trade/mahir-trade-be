@@ -1,0 +1,12 @@
+package models
+
+type (
+	User struct {
+		UserID      int    `json:"user_id,omitempty"`
+		Email       string `json:"email" validate:"required,email"`
+		Fullname    string `json:"fullname" validate:"required"`
+		PhoneNumber string `json:"phone_number" validate:"required"`
+		Username    string `json:"username" validate:"required"`
+		Password    string `json:"password" validate:"required,min=8,max=20,uppercase,lowercase,number,specialchar"`
+	}
+)

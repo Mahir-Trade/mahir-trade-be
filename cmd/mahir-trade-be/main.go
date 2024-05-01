@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app"
+	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/internal/app/infra"
+	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/internal/app/service"
+	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/di"
 
 	"github.com/joho/godotenv"
@@ -15,6 +19,8 @@ func main()  {
 	if err != nil {
 		slog.Error("Error loading .env file")
 	}
+
+	utils.InitValidator()
 
 	err = infra.InitTimezone()
 	if err != nil {
@@ -84,34 +90,28 @@ func LoadApplicationPackage() error {
 }
 
 func LoadApplicationRepository() error {
-	// fill after create repo
-	// Example
-	//err := di.Provide(postgres.NewMoneyTransferRepo)
-	//if err != nil {
-	//	return fmt.Errorf("NewMoneyTransferRepo: %s", err.Error())
-	//}
+	err := di.Provide(postgres.NewUserRepo)
+	if err != nil {
+		return fmt.Errorf("NewMoneyTransferRepo: %s", err.Error())
+	}
 
 	return nil
 }
 
 func LoadApplicationService() error {
-	// fill after create repo
-	// Example
-	//err := di.Provide(service.NewMoneyTransferSvc)
-	//if err != nil {
-	//	return fmt.Errorf("NewMoneyTransferService: %s", err.Error())
-	//}
+	err := di.Provide(service.NewUserSvc)
+	if err != nil {
+		return fmt.Errorf("NewUserSvc: %s", err.Error())
+	}
 
 	return nil
 }
 
 func LoadApplicationController() error {
-	// fill after create repo
-	// Example
-	//err := di.Provide(controller.NewMoneyTransferCtrl)
-	//if err != nil {
-	//	return fmt.Errorf("NewMoneyTransferController: %s", err.Error())
-	//}
+	err := di.Provide(controller.NewAuthCtrl)
+	if err != nil {
+		return fmt.Errorf("NewAuthCtrl: %s", err.Error())
+	}
 
 	return nil
 }
