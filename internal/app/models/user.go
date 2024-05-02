@@ -3,6 +3,7 @@ package models
 type (
 	User struct {
 		UserID      int    `json:"user_id,omitempty"`
+		UUID        string `json:"uuid,omitempty"`
 		Email       string `json:"email" validate:"required,email"`
 		Fullname    string `json:"fullname" validate:"required"`
 		PhoneNumber string `json:"phone_number" validate:"required"`

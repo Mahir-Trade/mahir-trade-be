@@ -14,7 +14,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func main()  {
+func main() {
 	err := godotenv.Load()
 	if err != nil {
 		slog.Error("Error loading .env file")
@@ -69,6 +69,11 @@ func LoadApplicationConfig() error {
 	err = di.Provide(infra.LoadAppCfg)
 	if err != nil {
 		return fmt.Errorf("LoadAppCfg: %s", err.Error())
+	}
+
+	err = di.Provide(infra.LoadJwtCfg)
+	if err != nil {
+		return fmt.Errorf("LoadJwtCfg: %s", err.Error())
 	}
 
 	return nil

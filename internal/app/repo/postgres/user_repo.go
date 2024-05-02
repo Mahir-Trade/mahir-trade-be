@@ -14,6 +14,7 @@ import (
 type (
 	UserRepo interface {
 		CreateUser(ctx context.Context, req models.User) (id int, err error)
+		FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error)
 	}
 
 	UserRepoImpl struct {
@@ -35,4 +36,15 @@ func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int,
 	}
 
 	return id, nil
+}
+
+func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error) {
+	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmail, req)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailOrUsername err: %v", err.Error()))
+		return user, err
+	}
+
+	return user, nil
 }
