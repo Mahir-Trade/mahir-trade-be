@@ -14,8 +14,8 @@ CREATE TABLE "users" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM',
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100),
   CONSTRAINT users_pkey PRIMARY KEY (user_id)
 );
 
@@ -27,8 +27,8 @@ CREATE TABLE "groups" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "modules" (
@@ -42,8 +42,8 @@ CREATE TABLE "modules" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "sub_modules" (
@@ -57,8 +57,8 @@ CREATE TABLE "sub_modules" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "reports" (
@@ -70,8 +70,8 @@ CREATE TABLE "reports" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "user_sub_modules" (
@@ -83,8 +83,8 @@ CREATE TABLE "user_sub_modules" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM',
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100),
   PRIMARY KEY ("id", "user_id", "sub_module_id")
 );
 
@@ -98,8 +98,8 @@ CREATE TABLE "packages" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "user_memberships" (
@@ -113,8 +113,8 @@ CREATE TABLE "user_memberships" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "orders" (
@@ -128,8 +128,8 @@ CREATE TABLE "orders" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "transactions" (
@@ -143,8 +143,8 @@ CREATE TABLE "transactions" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100)
 );
 
 CREATE TABLE "general_logs" (
@@ -156,8 +156,8 @@ CREATE TABLE "general_logs" (
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
-  "deleted_at" timestamp DEFAULT now(),
-  "deleted_by" varchar(100) default 'SYSTEM'
+  "deleted_at" timestamp),
+  "deleted_by" varchar(100)
 );
 
 ALTER TABLE "user_sub_modules" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("user_id");
