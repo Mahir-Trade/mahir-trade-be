@@ -15,6 +15,9 @@ func setRoute(
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
-
-	e.POST("/register", authCtrl.UserRegistration)
+	users := e.Group("/v1/users")
+	{
+		users.POST("/register", authCtrl.UserRegistration)
+		users.POST("/login", authCtrl.UserLogin)
+	}
 }

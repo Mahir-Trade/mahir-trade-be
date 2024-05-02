@@ -33,6 +33,10 @@ type (
 		MaxIdleConns    int           `envconfig:"MAX_IDLE_CONNS" default:"5" required:"true"`
 		ConnMaxLifetime time.Duration `envconfig:"CONN_MAX_LIFETIME" default:"15m" required:"true"`
 	}
+
+	JwtCfg struct {
+		SecretKey string `envconfig:"JWT_SECRET_KEY" required:"true" default:"secret"`
+	}
 )
 
 func NewDatabases(cfgs DatabaseCfgs) Databases {
