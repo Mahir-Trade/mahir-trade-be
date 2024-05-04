@@ -100,6 +100,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewMoneyTransferRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewGroupRepo)
+	if err != nil {
+		return fmt.Errorf("NewGroupRepo: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -109,6 +114,11 @@ func LoadApplicationService() error {
 		return fmt.Errorf("NewUserSvc: %s", err.Error())
 	}
 
+	err = di.Provide(service.NewGroupSvc)
+	if err != nil {
+		return fmt.Errorf("NewGroupSvc: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -116,6 +126,11 @@ func LoadApplicationController() error {
 	err := di.Provide(controller.NewAuthCtrl)
 	if err != nil {
 		return fmt.Errorf("NewAuthCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewGroupCtrl)
+	if err != nil {
+		return fmt.Errorf("NewGroupCtrl: %s", err.Error())
 	}
 
 	return nil
