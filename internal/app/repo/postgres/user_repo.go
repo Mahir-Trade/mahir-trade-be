@@ -15,6 +15,7 @@ type (
 	UserRepo interface {
 		CreateUser(ctx context.Context, req models.User) (id int, err error)
 		FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error)
+		GetUserByID(ctx context.Context, id int64) (user models.User, err error)
 	}
 
 	UserRepoImpl struct {
@@ -43,6 +44,17 @@ func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string
 	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailOrUsername err: %v", err.Error()))
+		return user, err
+	}
+
+	return user, nil
+}
+
+func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.User, err error) {
+	row := u.QueryRowContext(ctx, queries.QueryGetUserByID, id)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByID err: %v", err.Error()))
 		return user, err
 	}
 

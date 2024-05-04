@@ -6,6 +6,7 @@ import (
 	"mahir-trade-be/internal/app"
 	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/internal/app/infra"
+	"mahir-trade-be/internal/app/repo/discord"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
@@ -103,6 +104,11 @@ func LoadApplicationRepository() error {
 	err = di.Provide(postgres.NewGroupRepo)
 	if err != nil {
 		return fmt.Errorf("NewGroupRepo: %s", err.Error())
+	}
+
+	err = di.Provide(discord.NewDiscordRepo)
+	if err != nil {
+		return fmt.Errorf("NewDiscordRepo: %s", err.Error())
 	}
 
 	return nil
