@@ -7,7 +7,6 @@ import (
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
-	"strconv"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -140,15 +139,7 @@ func (ox *AuthCtrlImpl) AssignRoleDiscordToUser(ec echo.Context) error {
 		}
 	}()
 
-	userId := ec.Param("userId")
-	userIdInt, err := strconv.Atoi(userId)
-	if err != nil {
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request body",
-			Error:   err.Error(),
-		})
-	}
+	userUUID := ec.Get("user_id").(string)
 
 	var discordReq discord.GetDiscordUserRequest
 	if err := ec.Bind(&discordReq); err != nil {
@@ -159,7 +150,7 @@ func (ox *AuthCtrlImpl) AssignRoleDiscordToUser(ec echo.Context) error {
 		})
 	}
 
-	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, int64(userIdInt), discordReq.Username)
+	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, userUUID, discordReq.Username)
 	if err != nil {
 		slog.Error("AssignRoleDiscordToUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
@@ -177,15 +168,7 @@ func (ox *AuthCtrlImpl) RemoveRoleDiscordUser(ec echo.Context) error {
 		}
 	}()
 
-	userId := ec.Param("userId")
-	userIdInt, err := strconv.Atoi(userId)
-	if err != nil {
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request body",
-			Error:   err.Error(),
-		})
-	}
+	userUUID := ec.Get("user_id").(string)
 
 	var discordReq discord.GetDiscordUserRequest
 	if err := ec.Bind(&discordReq); err != nil {
@@ -196,7 +179,7 @@ func (ox *AuthCtrlImpl) RemoveRoleDiscordUser(ec echo.Context) error {
 		})
 	}
 
-	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx, int64(userIdInt), discordReq.Username)
+	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx, userUUID, discordReq.Username)
 	if err != nil {
 		slog.Error("RemoveRoleDiscordUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)

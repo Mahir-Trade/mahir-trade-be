@@ -16,6 +16,7 @@ type (
 		CreateUser(ctx context.Context, req models.User) (id int, err error)
 		FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error)
 		GetUserByID(ctx context.Context, id int64) (user models.User, err error)
+		GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error)
 	}
 
 	UserRepoImpl struct {
@@ -55,6 +56,17 @@ func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.U
 	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByID err: %v", err.Error()))
+		return user, err
+	}
+
+	return user, nil
+}
+
+func (u *UserRepoImpl) GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error) {
+	row := u.QueryRowContext(ctx, queries.QueryGetUserByUUID, uuid)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByUUID err: %v", err.Error()))
 		return user, err
 	}
 

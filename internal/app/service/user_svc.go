@@ -29,8 +29,8 @@ type (
 	UserSvc interface {
 		UserRegistration(ctx context.Context, req models.User) (err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
-		AssignRoleDiscordToUser(ctx context.Context, userId int64, usernameDiscord string) (resp models.DefaultResponse, err error)
-		RemoveRoleDiscordToUser(ctx context.Context, userId int64, usernameDiscord string) (resp models.DefaultResponse, err error)
+		AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
+		RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -119,13 +119,13 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 	return
 }
 
-func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userId int64, usernameDiscord string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
 	}
 
-	user, err := u.UserRepo.GetUserByID(ctx, userId)
+	user, err := u.UserRepo.GetUserByUUID(ctx, userUUID)
 	if err != nil {
 		resp.Code = http.StatusNotFound
 		resp.Message = "user not found"
@@ -177,13 +177,13 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userId int64,
 	return
 }
 
-func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userId int64, usernameDiscord string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
 	}
 
-	user, err := u.UserRepo.GetUserByID(ctx, userId)
+	user, err := u.UserRepo.GetUserByUUID(ctx, userUUID)
 	if err != nil {
 		resp.Code = http.StatusNotFound
 		resp.Message = "user not found"
