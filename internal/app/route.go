@@ -3,6 +3,7 @@ package app
 import (
 	"log/slog"
 	"mahir-trade-be/internal/app/controller"
+	"mahir-trade-be/pkg/middleware"
 	"net/http"
 
 	"github.com/bwmarrin/discordgo"
@@ -40,9 +41,9 @@ func setRoute(
 
 	discord := base.Group("/discord")
 	{
-		discord.POST("/assign-role/:userId", authCtrl.AssignRoleDiscordToUser)
+		discord.POST("/assign-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
 
-		discord.POST("/remove-role/:userId", authCtrl.RemoveRoleDiscordUser)
+		discord.POST("/remove-role", middleware.AuthMiddleware(authCtrl.RemoveRoleDiscordUser))
 
 		// add endpoint to get user discord
 		discord.GET("/user", func(c echo.Context) error {
