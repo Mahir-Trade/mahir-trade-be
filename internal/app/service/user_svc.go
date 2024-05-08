@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/discord"
+	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
@@ -20,6 +21,11 @@ type (
 		Password string `json:"password" validate:"required"`
 	}
 
+	GoogleLoginReq struct {
+		State string `json:"state" validate:"required"`
+		Code  string `json:"code" validate:"required"`
+	}
+
 	JWTData struct {
 		Email   string `json:"email"`
 		UserID  string `json:"user_id"`
@@ -29,6 +35,8 @@ type (
 	UserSvc interface {
 		UserRegistration(ctx context.Context, req models.User) (err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
+		LoginWithGoogle(ctx context.Context) (url string, err error)
+		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (err error)
 		AssignRoleDiscordToUser(ctx context.Context, userId int64, usernameDiscord string) (resp models.DefaultResponse, err error)
 		RemoveRoleDiscordToUser(ctx context.Context, userId int64, usernameDiscord string) (resp models.DefaultResponse, err error)
 	}
@@ -38,6 +46,7 @@ type (
 
 		UserRepo    postgres.UserRepo
 		DiscordRepo discord.DiscordRepo
+		GoogleRepo  google.GoogleRepo
 	}
 )
 
@@ -232,5 +241,26 @@ func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userId int64,
 
 	resp.Data = userDiscord
 
+	return
+}
+
+func (u *UserSvcImpl) LoginWithGoogle(ctx context.Context) (url string, err error) {
+	url, err = u.GoogleRepo.Login(ctx)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][LoginWithGoogle] err : %v", err))
+		return
+	}
+	return
+}
+
+func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (err error) {
+	err = u.GoogleRepo.Callback(ctx, google.GoogleCallbackRequest{
+		State: req.State,
+		Code:  req.Code,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle] err : %v", err))
+		return
+	}
 	return
 }

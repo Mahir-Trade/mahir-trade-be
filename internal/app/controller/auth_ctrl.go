@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/discord"
@@ -31,6 +32,8 @@ type (
 	AuthCtrl interface {
 		UserRegistration(ec echo.Context) error
 		UserLogin(ec echo.Context) error
+		LoginWithGoogle(ec echo.Context) error
+		CallbackGoogle(ec echo.Context) error
 		AssignRoleDiscordToUser(ec echo.Context) error
 		RemoveRoleDiscordUser(ec echo.Context) error
 	}
@@ -203,4 +206,67 @@ func (ox *AuthCtrlImpl) RemoveRoleDiscordUser(ec echo.Context) error {
 	}
 
 	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) LoginWithGoogle(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("LoginWithGoogle - something went wrong", r)
+		}
+	}()
+
+	url, err := ox.UserSvc.LoginWithGoogle(ctx)
+	if err != nil {
+		slog.Error("LoginWithGoogle - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Error:   err.Error(),
+		})
+	}
+
+	fmt.Println(url)
+
+	return ec.Redirect(http.StatusTemporaryRedirect, url)
+}
+
+func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("CallbackGoogle - something went wrong", r)
+		}
+	}()
+
+	var req service.GoogleLoginReq
+	if err := ec.Bind(&req); err != nil {
+		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Data:    struct{}{},
+			Error:   err.Error(),
+		})
+	}
+
+	err := ox.UserSvc.CallbackGoogle(ctx, req)
+	if err != nil {
+		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Data:    struct{}{},
+			Error:   err.Error(),
+		},
+		)
+	}
+
+	return ec.JSON(http.StatusOK, models.DefaultResponse{
+		Code:    http.StatusOK,
+		Message: "success",
+		Data:    struct{}{},
+	})
 }
