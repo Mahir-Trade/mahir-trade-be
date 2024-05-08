@@ -2,6 +2,7 @@ package google
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,9 +18,17 @@ type (
 		Code  string `json:"code"`
 	}
 
+	GoogleCallbackResponse struct {
+		ID            string `json:"id"`
+		Email         string `json:"email"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
+		VerifiedEmail bool   `json:"verified_email"`
+	}
+
 	GoogleRepo interface {
 		Login(ctx context.Context) (url string, err error)
-		Callback(ctx context.Context, req GoogleCallbackRequest) (err error)
+		Callback(ctx context.Context, req GoogleCallbackRequest) (dataInfo GoogleCallbackResponse, err error)
 	}
 
 	GoogleRepoImpl struct {
@@ -38,7 +47,7 @@ func (g *GoogleRepoImpl) Login(ctx context.Context) (url string, err error) {
 	return
 }
 
-func (g *GoogleRepoImpl) Callback(ctx context.Context, req GoogleCallbackRequest) (err error) {
+func (g *GoogleRepoImpl) Callback(ctx context.Context, req GoogleCallbackRequest) (dataInfo GoogleCallbackResponse, err error) {
 	if req.State != "state-token" {
 		err = fmt.Errorf("invalid credentials")
 		slog.ErrorContext(ctx, "[repo][google][Callback][state]", err)
@@ -63,8 +72,11 @@ func (g *GoogleRepoImpl) Callback(ctx context.Context, req GoogleCallbackRequest
 		slog.ErrorContext(ctx, "[repo][google][Callback][io.ReadAll]", err)
 		return
 	}
-
-	slog.InfoContext(ctx, "[repo][google][Callback] response:", string(userData), err)
+	err = json.Unmarshal(userData, &dataInfo)
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][Callback][json.Unmarshal]", err)
+		return
+	}
 
 	return
 }

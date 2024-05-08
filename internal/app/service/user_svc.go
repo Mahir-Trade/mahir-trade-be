@@ -38,7 +38,7 @@ type (
 		AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
 		RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
 		LoginWithGoogle(ctx context.Context) (url string, err error)
-		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (err error)
+		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -253,14 +253,108 @@ func (u *UserSvcImpl) LoginWithGoogle(ctx context.Context) (url string, err erro
 	return
 }
 
-func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (err error) {
-	err = u.GoogleRepo.Callback(ctx, google.GoogleCallbackRequest{
+func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error) {
+
+	userInfo, err := u.GoogleRepo.Callback(ctx, google.GoogleCallbackRequest{
 		State: req.State,
 		Code:  req.Code,
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle] err : %v", err))
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 		return
 	}
+
+	userEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
+	userName := strings.ToLower(strings.TrimSpace(userInfo.Name))
+
+	user, err := u.UserRepo.FindUserByEmailAndUsername(ctx, userEmail, userName)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][FindUserByEmailAndUsername] err : %v", err))
+	}
+
+	if user.UserID != 0 {
+		token, exp, errSign := utils.Sign(JWTData{
+			Email:   user.Email,
+			UserID:  user.UUID,
+			Usename: user.Username,
+		})
+		if errSign != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
+			err = fmt.Errorf("internal server error, we will fix it soon")
+			resp.Code = http.StatusInternalServerError
+			resp.Message = "internal server error, we will fix it soon"
+			return
+		}
+		resp = models.DefaultResponse{
+			Code:    http.StatusOK,
+			Message: "success",
+			Data: struct {
+				Token  string `json:"token"`
+				Expire int64  `json:"expire"`
+			}{
+				Token:  token,
+				Expire: exp,
+			},
+			Error: struct{}{},
+		}
+
+		return
+	}
+
+	passwordHash, err := utils.HashPassword(utils.GenerateRandomPassword(12))
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][HashPassword] err : %v", err))
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
+		return
+	}
+
+	userReq := models.User{
+		Email:    userEmail,
+		Fullname: userInfo.Name,
+		Username: userName,
+		Password: passwordHash,
+	}
+
+	_, err = u.UserRepo.CreateUser(ctx, userReq)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][CreateUser] err : %v", err))
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
+		return
+	}
+
+	token, exp, errSign := utils.Sign(JWTData{
+		Email:   userReq.Email,
+		UserID:  userReq.UUID,
+		Usename: userReq.Username,
+	})
+
+	if errSign != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
+		err = fmt.Errorf("internal server error, we will fix it soon")
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		return
+	}
+
+	resp = models.DefaultResponse{
+		Code:    http.StatusOK,
+		Message: "success",
+		Data: struct {
+			Token  string `json:"token"`
+			Expire int64  `json:"expire"`
+		}{
+			Token:  token,
+			Expire: exp,
+		},
+		Error: struct{}{},
+	}
+
 	return
 }

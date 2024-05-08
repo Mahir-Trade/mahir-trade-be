@@ -5,9 +5,9 @@ CREATE TABLE "users" (
   "uuid" uuid DEFAULT uuid_generate_v4(),
   "phone_number" varchar(40) NULL,
   "password" varchar(255) NOT NULL,
-  "email" varchar(255) UNIQUE NOT NULL,
+  "email" varchar(255) NOT NULL,
   "fullname" varchar(255) NOT NULL,
-  "username" varchar(255) UNIQUE NOT NULL,
+  "username" varchar(255) NOT NULL,
   "discord_username" varchar(255),
   "google_account_id" varchar(255),
   "created_at" timestamp DEFAULT now(),
@@ -191,6 +191,7 @@ CREATE INDEX "idx_order_package_id" ON "orders" ("package_id" DESC);
 CREATE INDEX "idx_order_payment_code" ON "orders" ("payment_code" DESC);
 CREATE INDEX "idx_transaction_order_id" ON "transactions" ("order_id" DESC);
 CREATE INDEX "idx_general_logs_user_id" ON "general_logs" ("user_id" DESC);
+CREATE UNIQUE INDEX "c_uidx_user_email" ON "users" ("email", "username" DESC);
 
 
 
