@@ -1,9 +1,14 @@
 package discord
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/bwmarrin/discordgo"
@@ -25,10 +30,20 @@ type (
 		Username string
 	}
 
+	TokenResponse struct {
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		ExpiresIn    int    `json:"expires_in"`
+		Scope        string `json:"scope"`
+		RefreshToken string `json:"refresh_token"`
+	}
+
 	DiscordRepo interface {
 		AddRoleToMember(req DiscordRoleRequest) error
 		RemoveRoleFromMember(req DiscordRoleRequest) error
 		GetDiscordUser(req GetDiscordUserRequest) (user DiscordUser, err error)
+		ExchangeCodeForToken(code string) (resp TokenResponse, err error)
+		GetUserDataByAccessToken(accessToken string) (user DiscordUser, err error)
 	}
 
 	DiscordRepoImpl struct {
@@ -105,6 +120,83 @@ func (d *DiscordRepoImpl) GetDiscordUser(req GetDiscordUserRequest) (user Discor
 	user.ID = users[0].User.ID
 	user.Email = users[0].User.Email
 	user.Username = users[0].User.Username
+
+	return user, nil
+}
+
+func (d *DiscordRepoImpl) ExchangeCodeForToken(code string) (resp TokenResponse, err error) {
+	tokenURL := os.Getenv("DISCORD_BASE_URL") + "/v10/oauth2/token"
+
+	data := url.Values{}
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
+	data.Set("redirect_uri", "http://103.127.136.131:8089/")
+
+	payload := bytes.NewBufferString(data.Encode())
+
+	req, err := http.NewRequest("POST", tokenURL, payload)
+	if err != nil {
+		slog.Error("[repo][discord][ExchangeCodeForToken] Error create new request: ", err)
+		return resp, err
+	}
+
+	clientID := os.Getenv("DISCORD_CLIENT_ID")
+	clientSecret := os.Getenv("DISCORD_CLIENT_SECRET")
+
+	req.SetBasicAuth(clientID, clientSecret)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Error("[repo][discord][ExchangeCodeForToken] Error sending request: ", err)
+		return resp, err
+	}
+	defer res.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		slog.Error("[repo][discord][ExchangeCodeForToken] Error reading response body: ", err)
+		return resp, err
+	}
+
+	var tokenResp TokenResponse
+	err = json.Unmarshal(bodyBytes, &tokenResp)
+	if err != nil {
+		slog.Error("[repo][discord][ExchangeCodeForToken] Error unmarshal response body: ", err)
+		return resp, err
+	}
+
+	return resp, nil
+}
+
+func (d *DiscordRepoImpl) GetUserDataByAccessToken(accessToken string) (user DiscordUser, err error) {
+	userURL := os.Getenv("DISCORD_BASE_URL") + "users/@me"
+
+	req, err := http.NewRequest("GET", userURL, nil)
+	if err != nil {
+		slog.Error("[repo][discord][GetUserDataByAccessToken] Error create new request: ", err)
+		return user, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		slog.Error("[repo][discord][GetUserDataByAccessToken] Error sending request: ", err)
+		return user, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("[repo][discord][GetUserDataByAccessToken] Error reading response body: ", err)
+		return user, err
+	}
+
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		slog.Error("[repo][discord][GetUserDataByAccessToken] Error unmarshal response body: ", err)
+		return user, err
+	}
 
 	return user, nil
 }
