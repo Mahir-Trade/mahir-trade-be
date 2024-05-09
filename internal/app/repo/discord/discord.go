@@ -44,6 +44,7 @@ type (
 		GetDiscordUser(req GetDiscordUserRequest) (user DiscordUser, err error)
 		ExchangeCodeForToken(code string) (resp TokenResponse, err error)
 		GetUserDataByAccessToken(accessToken string) (user DiscordUser, err error)
+		InviteUserToGuild(userId, guildId, accessToken string) (err error)
 	}
 
 	DiscordRepoImpl struct {
@@ -199,4 +200,38 @@ func (d *DiscordRepoImpl) GetUserDataByAccessToken(accessToken string) (user Dis
 	}
 
 	return user, nil
+}
+
+func (d *DiscordRepoImpl) InviteUserToGuild(userId, guildId, accessToken string) (err error) {
+	inviteGuildURL := os.Getenv("DISCORD_BASE_URL") + fmt.Sprintf("/guilds/%s/members/%s", guildId, userId)
+
+	data := map[string]string{
+		"access_token": accessToken,
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		slog.Error("[repo][discord][InviteUserToGuild] Error marshaling JSON:", err)
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", inviteGuildURL, bytes.NewBuffer(payload))
+	if err != nil {
+		slog.Error("[repo][discord][InviteUserToGuild] Error create new request: ", err)
+		return err
+	}
+
+	botToken := os.Getenv("DISCORD_TOKEN")
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bot "+botToken)
+
+	client := &http.Client{}
+	_, err = client.Do(req)
+	if err != nil {
+		slog.Error("[repo][discord][InviteUserToGuild] Error sending request: ", err)
+		return err
+	}
+
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
+	"os"
 	"strings"
 
 	"go.uber.org/dig"
@@ -31,6 +32,7 @@ type (
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
 		AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
 		RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
+		ConnectDiscordAccount(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -231,6 +233,48 @@ func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID, use
 	}
 
 	resp.Data = userDiscord
+
+	return
+}
+
+func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+	}
+
+	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "failed to exchange code"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][ExchangeCodeForToken] err : %v", err))
+
+		return resp, err
+	}
+
+	discordUser, err := u.DiscordRepo.GetUserDataByAccessToken(tokenResp.AccessToken)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "failed to get discord user data"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][GetUserDataByAccessToken] err : %v", err))
+
+		return resp, err
+	}
+
+	// TODO: save user to table discord_accounts
+
+	guildID := os.Getenv("DISCORD_GUILD_ID")
+	err = u.DiscordRepo.InviteUserToGuild(discordUser.ID, guildID, tokenResp.AccessToken)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "failed to invite user to server"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][GetUserDataByAccessToken] err : %v", err))
+
+		return resp, err
+	}
 
 	return
 }
