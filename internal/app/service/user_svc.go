@@ -253,6 +253,15 @@ func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (r
 		return resp, err
 	}
 
+	if tokenResp.Error != "" {
+		resp.Code = http.StatusBadRequest
+		resp.Message = tokenResp.Error
+		resp.Error = tokenResp.ErrorDescription
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][ExchangeCodeForToken] err : %v", err))
+
+		return resp, err
+	}
+
 	discordUser, err := u.DiscordRepo.GetUserDataByAccessToken(tokenResp.AccessToken)
 	if err != nil {
 		resp.Code = http.StatusBadRequest

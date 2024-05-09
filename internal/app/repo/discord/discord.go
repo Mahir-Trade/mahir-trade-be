@@ -31,11 +31,13 @@ type (
 	}
 
 	TokenResponse struct {
-		AccessToken  string `json:"access_token"`
-		TokenType    string `json:"token_type"`
-		ExpiresIn    int    `json:"expires_in"`
-		Scope        string `json:"scope"`
-		RefreshToken string `json:"refresh_token"`
+		AccessToken      string `json:"access_token"`
+		TokenType        string `json:"token_type"`
+		ExpiresIn        int    `json:"expires_in"`
+		Scope            string `json:"scope"`
+		RefreshToken     string `json:"refresh_token"`
+		Error            string `json:"error,omitempty"`
+		ErrorDescription string `json:"error_description,omitempty"`
 	}
 
 	DiscordRepo interface {
@@ -167,11 +169,11 @@ func (d *DiscordRepoImpl) ExchangeCodeForToken(code string) (resp TokenResponse,
 		return resp, err
 	}
 
-	return resp, nil
+	return tokenResp, nil
 }
 
 func (d *DiscordRepoImpl) GetUserDataByAccessToken(accessToken string) (user DiscordUser, err error) {
-	userURL := os.Getenv("DISCORD_BASE_URL") + "users/@me"
+	userURL := os.Getenv("DISCORD_BASE_URL") + "/users/@me"
 
 	req, err := http.NewRequest("GET", userURL, nil)
 	if err != nil {

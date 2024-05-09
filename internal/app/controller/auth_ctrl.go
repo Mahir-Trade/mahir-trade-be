@@ -198,7 +198,7 @@ func (ox *AuthCtrlImpl) ConnectDiscordAccount(ec echo.Context) error {
 		}
 	}()
 
-	code := ec.Param("code")
+	code := ec.QueryParam("code")
 	res, err := ox.UserSvc.ConnectDiscordAccount(ctx, code)
 	if err != nil {
 		slog.Error("ConnectDiscordAccount - something went wrong", err)
