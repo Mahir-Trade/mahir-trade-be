@@ -4,17 +4,25 @@ import (
 	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app"
+	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/internal/app/infra"
+	"mahir-trade-be/internal/app/repo/discord"
+	"mahir-trade-be/internal/app/repo/google"
+	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/internal/app/service"
+	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/di"
 
 	"github.com/joho/godotenv"
 )
 
-func main()  {
+func main() {
 	err := godotenv.Load()
 	if err != nil {
 		slog.Error("Error loading .env file")
 	}
+
+	utils.InitValidator()
 
 	err = infra.InitTimezone()
 	if err != nil {
@@ -50,7 +58,6 @@ func main()  {
 		fmt.Println("LoadApplicationController: ", err.Error())
 		slog.Error(err.Error())
 	}
-
 	app.Start()
 }
 
@@ -63,6 +70,16 @@ func LoadApplicationConfig() error {
 	err = di.Provide(infra.LoadAppCfg)
 	if err != nil {
 		return fmt.Errorf("LoadAppCfg: %s", err.Error())
+	}
+
+	err = di.Provide(infra.LoadJwtCfg)
+	if err != nil {
+		return fmt.Errorf("LoadJwtCfg: %s", err.Error())
+	}
+
+	err = di.Provide(infra.LoadGoogleCfg)
+	if err != nil {
+		return fmt.Errorf("LoadGoogleCfg: %s", err.Error())
 	}
 
 	return nil
@@ -80,38 +97,62 @@ func LoadApplicationPackage() error {
 		return fmt.Errorf("NewDatabases: %s", err.Error())
 	}
 
+	err = di.Provide(infra.NewOauth)
+	if err != nil {
+		fmt.Println("NewOauth: ", err.Error())
+		return fmt.Errorf("NewOauth: %s", err.Error())
+	}
 	return nil
 }
 
 func LoadApplicationRepository() error {
-	// fill after create repo
-	// Example
-	//err := di.Provide(postgres.NewMoneyTransferRepo)
-	//if err != nil {
-	//	return fmt.Errorf("NewMoneyTransferRepo: %s", err.Error())
-	//}
+	err := di.Provide(postgres.NewUserRepo)
+	if err != nil {
+		return fmt.Errorf("NewMoneyTransferRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewGroupRepo)
+	if err != nil {
+		return fmt.Errorf("NewGroupRepo: %s", err.Error())
+	}
+
+	err = di.Provide(discord.NewDiscordRepo)
+	if err != nil {
+		return fmt.Errorf("NewDiscordRepo: %s", err.Error())
+	}
+
+	err = di.Provide(google.NewGoogleRepo)
+	if err != nil {
+		return fmt.Errorf("NewGoogleRepo: %s", err.Error())
+	}
 
 	return nil
 }
 
 func LoadApplicationService() error {
-	// fill after create repo
-	// Example
-	//err := di.Provide(service.NewMoneyTransferSvc)
-	//if err != nil {
-	//	return fmt.Errorf("NewMoneyTransferService: %s", err.Error())
-	//}
+	err := di.Provide(service.NewUserSvc)
+	if err != nil {
+		return fmt.Errorf("NewUserSvc: %s", err.Error())
+	}
+
+	err = di.Provide(service.NewGroupSvc)
+	if err != nil {
+		return fmt.Errorf("NewGroupSvc: %s", err.Error())
+	}
 
 	return nil
 }
 
 func LoadApplicationController() error {
-	// fill after create repo
-	// Example
-	//err := di.Provide(controller.NewMoneyTransferCtrl)
-	//if err != nil {
-	//	return fmt.Errorf("NewMoneyTransferController: %s", err.Error())
-	//}
+	err := di.Provide(controller.NewAuthCtrl)
+	if err != nil {
+		return fmt.Errorf("NewAuthCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewGroupCtrl)
+	if err != nil {
+		return fmt.Errorf("NewGroupCtrl: %s", err.Error())
+	}
 
 	return nil
 }

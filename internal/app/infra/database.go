@@ -33,6 +33,16 @@ type (
 		MaxIdleConns    int           `envconfig:"MAX_IDLE_CONNS" default:"5" required:"true"`
 		ConnMaxLifetime time.Duration `envconfig:"CONN_MAX_LIFETIME" default:"15m" required:"true"`
 	}
+
+	JwtCfg struct {
+		SecretKey string `envconfig:"JWT_SECRET_KEY" required:"true" default:"secret"`
+	}
+
+	DiscordCfg struct {
+		DiscordToken   string `envconfig:"DISCORD_TOKEN" required:"true" default:"discord_token"`
+		DiscordGuildID string `envconfig:"DISCORD_GUILD_ID" required:"true" default:"discord_guild_id"`
+		DiscordRoleID  string `envconfig:"DISCORD_ROLE_ID" required:"true" default:"discord_role_id"`
+	}
 )
 
 func NewDatabases(cfgs DatabaseCfgs) Databases {
