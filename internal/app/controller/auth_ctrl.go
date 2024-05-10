@@ -33,6 +33,7 @@ type (
 		AssignRoleDiscordToUser(ec echo.Context) error
 		RemoveRoleDiscordUser(ec echo.Context) error
 		ConnectDiscordAccount(ec echo.Context) error
+		ConnectDiscordAccountAndAssignRole(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -202,6 +203,25 @@ func (ox *AuthCtrlImpl) ConnectDiscordAccount(ec echo.Context) error {
 	res, err := ox.UserSvc.ConnectDiscordAccount(ctx, code)
 	if err != nil {
 		slog.Error("ConnectDiscordAccount - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ConnectDiscordAccountAndAssignRole(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccountAndAssignRole - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.ConnectDiscordAccountAndAssignRole(ctx, code)
+	if err != nil {
+		slog.Error("ConnectDiscordAccountAndAssignRole - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

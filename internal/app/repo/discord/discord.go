@@ -129,11 +129,12 @@ func (d *DiscordRepoImpl) GetDiscordUser(req GetDiscordUserRequest) (user Discor
 
 func (d *DiscordRepoImpl) ExchangeCodeForToken(code string) (resp TokenResponse, err error) {
 	tokenURL := os.Getenv("DISCORD_BASE_URL") + "/v10/oauth2/token"
+	redirectURI := os.Getenv("DISCORD_REDIRECT_URI")
 
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
 	data.Set("code", code)
-	data.Set("redirect_uri", "http://103.127.136.131:8089/")
+	data.Set("redirect_uri", redirectURI)
 
 	payload := bytes.NewBufferString(data.Encode())
 

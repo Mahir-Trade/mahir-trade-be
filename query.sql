@@ -8,7 +8,7 @@ CREATE TABLE "users" (
   "email" varchar(255) UNIQUE NOT NULL,
   "fullname" varchar(255) NOT NULL,
   "username" varchar(255) UNIQUE NOT NULL,
-  "discord_username" varchar(255),
+  "is_discord_connected" varchar(255),
   "google_account_id" varchar(255),
   "created_at" timestamp DEFAULT now(),
   "created_by" varchar(100) default 'SYSTEM',

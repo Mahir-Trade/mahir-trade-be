@@ -33,6 +33,7 @@ type (
 		AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
 		RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccount(ctx context.Context, code string) (resp models.DefaultResponse, err error)
+		ConnectDiscordAccountAndAssignRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -283,6 +284,67 @@ func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (r
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][GetUserDataByAccessToken] err : %v", err))
 
 		return resp, err
+	}
+
+	return
+}
+
+func (u *UserSvcImpl) ConnectDiscordAccountAndAssignRole(ctx context.Context, code string) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+	}
+
+	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "failed to exchange code"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccountAndAssignRole][ExchangeCodeForToken] err : %v", err))
+
+		return resp, err
+	}
+
+	if tokenResp.Error != "" {
+		resp.Code = http.StatusBadRequest
+		resp.Message = tokenResp.Error
+		resp.Error = tokenResp.ErrorDescription
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccountAndAssignRole][ExchangeCodeForToken] err : %v", err))
+
+		return resp, err
+	}
+
+	discordUser, err := u.DiscordRepo.GetUserDataByAccessToken(tokenResp.AccessToken)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "failed to get discord user data"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccountAndAssignRole][GetUserDataByAccessToken] err : %v", err))
+
+		return resp, err
+	}
+
+	guildID := os.Getenv("DISCORD_GUILD_ID")
+	err = u.DiscordRepo.InviteUserToGuild(discordUser.ID, guildID, tokenResp.AccessToken)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "failed to invite user to server"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccountAndAssignRole][InviteUserToGuild] err : %v", err))
+
+		return resp, err
+	}
+
+	addRoleDiscordReq := discord.DiscordRoleRequest{UserID: discordUser.ID}
+
+	err = u.DiscordRepo.AddRoleToMember(addRoleDiscordReq)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccountAndAssignRole][AddRoleToMember] err : %v", err))
+
+		return
 	}
 
 	return
