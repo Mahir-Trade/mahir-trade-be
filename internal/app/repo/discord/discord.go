@@ -44,7 +44,7 @@ type (
 		AddRoleToMember(req DiscordRoleRequest) error
 		RemoveRoleFromMember(req DiscordRoleRequest) error
 		GetDiscordUser(req GetDiscordUserRequest) (user DiscordUser, err error)
-		ExchangeCodeForToken(code string) (resp TokenResponse, err error)
+		ExchangeCodeForToken(code, redirectURI string) (resp TokenResponse, err error)
 		GetUserDataByAccessToken(accessToken string) (user DiscordUser, err error)
 		InviteUserToGuild(userId, guildId, accessToken string) (err error)
 	}
@@ -127,9 +127,8 @@ func (d *DiscordRepoImpl) GetDiscordUser(req GetDiscordUserRequest) (user Discor
 	return user, nil
 }
 
-func (d *DiscordRepoImpl) ExchangeCodeForToken(code string) (resp TokenResponse, err error) {
+func (d *DiscordRepoImpl) ExchangeCodeForToken(code, redirectURI string) (resp TokenResponse, err error) {
 	tokenURL := os.Getenv("DISCORD_BASE_URL") + "/v10/oauth2/token"
-	redirectURI := os.Getenv("DISCORD_REDIRECT_URI")
 
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")

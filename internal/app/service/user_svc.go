@@ -244,7 +244,8 @@ func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (r
 		resp.Message = "success"
 	}
 
-	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code)
+	redirectURI := os.Getenv("DISCORD_REDIRECT_URI")
+	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code, redirectURI)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "failed to exchange code"
@@ -295,7 +296,8 @@ func (u *UserSvcImpl) ConnectDiscordAccountAndAssignRole(ctx context.Context, co
 		resp.Message = "success"
 	}
 
-	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code)
+	redirectURI := os.Getenv("DISCORD_REDIRECT_URI_ASSIGN_ROLE")
+	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code, redirectURI)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "failed to exchange code"
