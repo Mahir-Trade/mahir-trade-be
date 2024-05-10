@@ -42,6 +42,7 @@ func setRoute(
 		// discord callback
 		discord.GET("/account", authCtrl.ConnectDiscordAccount)
 		discord.GET("/account/add-role", authCtrl.ConnectDiscordAccountAndAssignRole)
+		discord.GET("/account/remove-role", authCtrl.ConnectDiscordAccountAndRemoveRole)
 
 		discord.POST("/assign-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
 
