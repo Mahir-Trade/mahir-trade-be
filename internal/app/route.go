@@ -1,12 +1,10 @@
 package app
 
 import (
-	"log/slog"
 	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/pkg/middleware"
 	"net/http"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 )
 
@@ -40,30 +38,12 @@ func setRoute(
 	discord := base.Group("/discord")
 	{
 		// discord callback
-		discord.GET("/account", authCtrl.ConnectDiscordAccount)
+		discord.GET("/account", authCtrl.InviteDiscordUserToGuild)
 		discord.GET("/account/add-role", authCtrl.ConnectDiscordAccountAndAssignRole)
 		discord.GET("/account/remove-role", authCtrl.ConnectDiscordAccountAndRemoveRole)
 
-		discord.POST("/assign-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
-
+		// internal
+		discord.POST("/connect-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
 		discord.POST("/remove-role", middleware.AuthMiddleware(authCtrl.RemoveRoleDiscordUser))
-
-		// add endpoint to get user discord
-		discord.GET("/user", func(c echo.Context) error {
-			session, err := discordgo.New("Bot " + "MTIzNTk5NzI1OTg4ODU5MDkxOA.GwqhuY.3MtFKt5OdaBRNOxxemxvAd7x6nXjNor5i-IovM")
-			if err != nil {
-				slog.Error("Error creating Discord session: ", err)
-				return err
-			}
-			defer session.Close()
-
-			users, err := session.GuildMembersSearch("688746990196228256", "a", 1)
-			if err != nil {
-				slog.Error("Error getting guild members: ", err)
-				return err
-			}
-
-			return c.JSON(http.StatusOK, users)
-		})
 	}
 }

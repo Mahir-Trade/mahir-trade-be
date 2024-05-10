@@ -30,9 +30,9 @@ type (
 	UserSvc interface {
 		UserRegistration(ctx context.Context, req models.User) (err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
-		AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
-		RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error)
-		ConnectDiscordAccount(ctx context.Context, code string) (resp models.DefaultResponse, err error)
+		AssignRoleDiscordToUser(ctx context.Context, userUUID, code string) (resp models.DefaultResponse, err error)
+		RemoveRoleDiscordToUser(ctx context.Context, userUUID string) (resp models.DefaultResponse, err error)
+		InviteDiscordUserToGuild(ctx context.Context, code, redirectURI string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccountAndAssignRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccountAndRemoveRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 	}
@@ -40,8 +40,9 @@ type (
 	UserSvcImpl struct {
 		dig.In
 
-		UserRepo    postgres.UserRepo
-		DiscordRepo discord.DiscordRepo
+		UserRepo           postgres.UserRepo
+		DiscordRepo        discord.DiscordRepo
+		DiscordAccountrepo postgres.DiscordAccountRepo
 	}
 )
 
@@ -123,7 +124,7 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 	return
 }
 
-func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, code string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
@@ -148,24 +149,14 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, use
 		return resp, fmt.Errorf("user not found")
 	}
 
-	userDiscordReq := discord.GetDiscordUserRequest{
-		Username: usernameDiscord,
-	}
-
-	userDiscord, err := u.DiscordRepo.GetDiscordUser(userDiscordReq)
+	redirectURI := os.Getenv("DISCORD_REDIRECT_URI_ASSIGN_ROLE")
+	resp, err = u.InviteDiscordUserToGuild(ctx, code, redirectURI)
 	if err != nil {
-		resp.Code = http.StatusNotFound
-		resp.Message = "discord user not found"
-		resp.Error = err.Error()
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][GetDiscordUser] err : %v", err))
-
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][InviteDiscordUserToGuild] err : %v", err))
 		return resp, err
 	}
 
-	addRoleDiscordReq := discord.DiscordRoleRequest{
-		UserID: userDiscord.ID,
-	}
-
+	addRoleDiscordReq := discord.DiscordRoleRequest{UserID: resp.Data.(discord.DiscordUser).ID}
 	err = u.DiscordRepo.AddRoleToMember(addRoleDiscordReq)
 	if err != nil {
 		resp.Code = http.StatusInternalServerError
@@ -176,12 +167,25 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, use
 		return
 	}
 
-	resp.Data = userDiscord
+	_, err = u.DiscordAccountrepo.CreateDiscordAccount(ctx, models.DiscordAccount{
+		UserID:           int64(user.UserID),
+		DiscordAccountID: resp.Data.(discord.DiscordUser).ID,
+		Username:         resp.Data.(discord.DiscordUser).Username,
+		Email:            resp.Data.(discord.DiscordUser).Email,
+	})
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][CreateDiscordAccount] err : %v", err))
+
+		return
+	}
 
 	return
 }
 
-func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID, usernameDiscord string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
@@ -206,22 +210,18 @@ func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID, use
 		return resp, fmt.Errorf("user not found")
 	}
 
-	userDiscordReq := discord.GetDiscordUserRequest{
-		Username: usernameDiscord,
-	}
-
-	userDiscord, err := u.DiscordRepo.GetDiscordUser(userDiscordReq)
+	discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, int64(user.UserID))
 	if err != nil {
 		resp.Code = http.StatusNotFound
-		resp.Message = "discord user not found"
+		resp.Message = "discord account not found"
 		resp.Error = err.Error()
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][RemoveRoleDiscordToUser][GetDiscordUser] err : %v", err))
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][RemoveRoleDiscordToUser][GetDiscordAccountByUserID] err : %v", err))
 
 		return resp, err
 	}
 
 	removeRoleDiscordReq := discord.DiscordRoleRequest{
-		UserID: userDiscord.ID,
+		UserID: discordAccount.DiscordAccountID,
 	}
 
 	err = u.DiscordRepo.RemoveRoleFromMember(removeRoleDiscordReq)
@@ -234,18 +234,27 @@ func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID, use
 		return
 	}
 
-	resp.Data = userDiscord
+	err = u.DiscordAccountrepo.DeleteDiscordAccountByUserID(ctx, discordAccount.ID)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][RemoveRoleDiscordToUser][DeleteDiscordAccountByUserID] err : %v", err))
+
+		return
+	}
+
+	resp.Data = discordAccount
 
 	return
 }
 
-func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) InviteDiscordUserToGuild(ctx context.Context, code, redirectURI string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
 	}
 
-	redirectURI := os.Getenv("DISCORD_REDIRECT_URI")
 	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code, redirectURI)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
@@ -275,8 +284,6 @@ func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (r
 		return resp, err
 	}
 
-	// TODO: save user to table discord_accounts
-
 	guildID := os.Getenv("DISCORD_GUILD_ID")
 	err = u.DiscordRepo.InviteUserToGuild(discordUser.ID, guildID, tokenResp.AccessToken)
 	if err != nil {
@@ -287,6 +294,8 @@ func (u *UserSvcImpl) ConnectDiscordAccount(ctx context.Context, code string) (r
 
 		return resp, err
 	}
+
+	resp.Data = discordUser
 
 	return
 }

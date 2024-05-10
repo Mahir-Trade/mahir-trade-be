@@ -111,6 +111,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewDiscordRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewDiscordAccountRepo)
+	if err != nil {
+		return fmt.Errorf("NewDiscordAccountRepo: %s", err.Error())
+	}
+
 	return nil
 }
 
