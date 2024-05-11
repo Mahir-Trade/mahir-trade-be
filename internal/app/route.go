@@ -13,6 +13,7 @@ func setRoute(
 
 	authCtrl controller.AuthCtrl,
 	groupCtrl controller.GroupCtrl,
+	packageCtrl controller.PackageCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -45,5 +46,14 @@ func setRoute(
 		// internal
 		discord.POST("/connect-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
 		discord.POST("/remove-role", middleware.AuthMiddleware(authCtrl.RemoveRoleDiscordUser))
+	}
+
+	packageRoute := base.Group("/packages")
+	{
+		packageRoute.POST("", packageCtrl.CreatePackage)
+		packageRoute.GET("/:id", packageCtrl.GetPackageByID)
+		packageRoute.GET("", packageCtrl.GetPackages)
+		packageRoute.PUT("/:id", packageCtrl.UpdatePackage)
+		packageRoute.DELETE("/:id", packageCtrl.DeletePackage)
 	}
 }
