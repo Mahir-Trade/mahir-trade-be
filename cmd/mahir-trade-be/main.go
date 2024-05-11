@@ -121,6 +121,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewPackageRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewReportRepo)
+	if err != nil {
+		return fmt.Errorf("NewReportRepo: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -140,6 +145,11 @@ func LoadApplicationService() error {
 		return fmt.Errorf("NewPackageSvc: %s", err.Error())
 	}
 
+	err = di.Provide(service.NewReportSvc)
+	if err != nil {
+		return fmt.Errorf("NewReportSvc: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -157,6 +167,11 @@ func LoadApplicationController() error {
 	err = di.Provide(controller.NewPackageCtrl)
 	if err != nil {
 		return fmt.Errorf("NewPackageCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewReportCtrl)
+	if err != nil {
+		return fmt.Errorf("NewReportCtrl: %s", err.Error())
 	}
 
 	return nil

@@ -3,7 +3,7 @@ package queries
 const (
 	QueryCreatePackage = `
 		INSERT INTO packages (price, duration_in_month, description, created_by, updated_by)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, SYSTEM, SYSTEM)
 		RETURNING id
 	`
 
@@ -12,7 +12,6 @@ const (
 		FROM packages
 		WHERE deleted_at IS NULL
 		LIMIT $1 OFFSET $2
-
 	`
 
 	QueryGetTotalPackages = `
@@ -30,7 +29,7 @@ const (
 
 	QueryUpdatePackage = `
 		UPDATE packages
-		SET price = $1, duration_in_month = $2, description = $3, updated_at = NOW()
+		SET price = $1, duration_in_month = $2, description = $3, updated_at = NOW(), updated_by = SYSTEM
 		WHERE id = $4
 	`
 

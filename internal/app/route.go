@@ -14,6 +14,7 @@ func setRoute(
 	authCtrl controller.AuthCtrl,
 	groupCtrl controller.GroupCtrl,
 	packageCtrl controller.PackageCtrl,
+	reportCtrl controller.ReportCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -55,5 +56,14 @@ func setRoute(
 		packageRoute.GET("", packageCtrl.GetPackages)
 		packageRoute.PUT("/:id", packageCtrl.UpdatePackage)
 		packageRoute.DELETE("/:id", packageCtrl.DeletePackage)
+	}
+
+	report := base.Group("/reports")
+	{
+		report.POST("", reportCtrl.CreateReport)
+		report.GET("/:id", reportCtrl.GetReportByID)
+		report.GET("", reportCtrl.GetReports)
+		report.PUT("/:id", reportCtrl.UpdateReport)
+		report.DELETE("/:id", reportCtrl.DeleteReport)
 	}
 }
