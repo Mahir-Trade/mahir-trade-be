@@ -1,12 +1,10 @@
 package app
 
 import (
-	"log/slog"
 	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/pkg/middleware"
 	"net/http"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,6 +16,7 @@ func setRoute(
 	moduleCtrl controller.ModuleCtrlImpl,
 	adminCtrl controller.AdminCtrl,
 	middleware middleware.MiddleWare,
+	packageCtrl controller.PackageCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -43,27 +42,23 @@ func setRoute(
 
 	discord := base.Group("/discord")
 	{
-		discord.Use(middleware.AuthAdminOrUser("user"))
-		discord.POST("/assign-role", authCtrl.AssignRoleDiscordToUser)
-		discord.POST("/remove-role", authCtrl.RemoveRoleDiscordUser)
+		// discord callback
+		discord.GET("/account", authCtrl.InviteDiscordUserToGuild)
+		discord.GET("/account/add-role", authCtrl.ConnectDiscordAccountAndAssignRole)
+		discord.GET("/account/remove-role", authCtrl.ConnectDiscordAccountAndRemoveRole)
 
-		// add endpoint to get user discord
-		discord.GET("/user", func(c echo.Context) error {
-			session, err := discordgo.New("Bot " + "MTIzNTk5NzI1OTg4ODU5MDkxOA.GwqhuY.3MtFKt5OdaBRNOxxemxvAd7x6nXjNor5i-IovM")
-			if err != nil {
-				slog.Error("Error creating Discord session: ", err)
-				return err
-			}
-			defer session.Close()
+		// internal
+		discord.POST("/connect-role", authCtrl.AssignRoleDiscordToUser, middleware.AuthAdminOrUser("user"))
+		discord.POST("/remove-role", authCtrl.RemoveRoleDiscordUser, middleware.AuthAdminOrUser("user"))
+	}
 
-			users, err := session.GuildMembersSearch("688746990196228256", "a", 1)
-			if err != nil {
-				slog.Error("Error getting guild members: ", err)
-				return err
-			}
-
-			return c.JSON(http.StatusOK, users)
-		})
+	packageRoute := base.Group("/packages", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		packageRoute.GET("/:id", packageCtrl.GetPackageByID)
+		packageRoute.GET("", packageCtrl.GetPackages)
+		packageRoute.POST("", packageCtrl.CreatePackage, middleware.AuthAdminOrUser("admin"))
+		packageRoute.PUT("/:id", packageCtrl.UpdatePackage, middleware.AuthAdminOrUser("admin"))
+		packageRoute.DELETE("/:id", packageCtrl.DeletePackage, middleware.AuthAdminOrUser("admin"))
 	}
 
 	modules := base.Group("/modules", middleware.AuthAdminOrUser("admin", "user"))

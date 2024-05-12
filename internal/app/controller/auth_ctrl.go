@@ -3,10 +3,10 @@ package controller
 import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
-	"mahir-trade-be/internal/app/repo/discord"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
+	"os"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -32,6 +32,9 @@ type (
 		UserLogin(ec echo.Context) error
 		AssignRoleDiscordToUser(ec echo.Context) error
 		RemoveRoleDiscordUser(ec echo.Context) error
+		InviteDiscordUserToGuild(ec echo.Context) error
+		ConnectDiscordAccountAndAssignRole(ec echo.Context) error
+		ConnectDiscordAccountAndRemoveRole(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -140,17 +143,8 @@ func (ox *AuthCtrlImpl) AssignRoleDiscordToUser(ec echo.Context) error {
 	}()
 
 	userUUID := ec.Get("user_id").(string)
-
-	var discordReq discord.GetDiscordUserRequest
-	if err := ec.Bind(&discordReq); err != nil {
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request body",
-			Error:   err.Error(),
-		})
-	}
-
-	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, userUUID, discordReq.Username)
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, userUUID, code)
 	if err != nil {
 		slog.Error("AssignRoleDiscordToUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
@@ -169,19 +163,67 @@ func (ox *AuthCtrlImpl) RemoveRoleDiscordUser(ec echo.Context) error {
 	}()
 
 	userUUID := ec.Get("user_id").(string)
-
-	var discordReq discord.GetDiscordUserRequest
-	if err := ec.Bind(&discordReq); err != nil {
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request body",
-			Error:   err.Error(),
-		})
-	}
-
-	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx, userUUID, discordReq.Username)
+	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx, userUUID)
 	if err != nil {
 		slog.Error("RemoveRoleDiscordUser - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) InviteDiscordUserToGuild(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccount - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	redirectURI := os.Getenv("DISCORD_REDIRECT_URI")
+	res, err := ox.UserSvc.InviteDiscordUserToGuild(ctx, code, redirectURI)
+	if err != nil {
+		slog.Error("ConnectDiscordAccount - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ConnectDiscordAccountAndAssignRole(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccountAndAssignRole - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.ConnectDiscordAccountAndAssignRole(ctx, code)
+	if err != nil {
+		slog.Error("ConnectDiscordAccountAndAssignRole - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ConnectDiscordAccountAndRemoveRole(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccountAndRemoveRole - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.ConnectDiscordAccountAndRemoveRole(ctx, code)
+	if err != nil {
+		slog.Error("ConnectDiscordAccountAndRemoveRole - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

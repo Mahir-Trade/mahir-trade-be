@@ -121,6 +121,16 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewAdminRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewDiscordAccountRepo)
+	if err != nil {
+		return fmt.Errorf("NewDiscordAccountRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewPackageRepo)
+	if err != nil {
+		return fmt.Errorf("NewPackageRepo: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -143,6 +153,11 @@ func LoadApplicationService() error {
 	err = di.Provide(service.NewAdminSvc)
 	if err != nil {
 		return fmt.Errorf("NewAdminSvc: %s", err.Error())
+	}
+
+	err = di.Provide(service.NewPackageSvc)
+	if err != nil {
+		return fmt.Errorf("NewPackageSvc: %s", err.Error())
 	}
 
 	return nil
@@ -172,6 +187,10 @@ func LoadApplicationController() error {
 	err = di.Provide(middleware.NewMiddleWare)
 	if err != nil {
 		return fmt.Errorf("NewMiddleWare: %s", err.Error())
+	}
+	err = di.Provide(controller.NewPackageCtrl)
+	if err != nil {
+		return fmt.Errorf("NewPackageCtrl: %s", err.Error())
 	}
 
 	return nil
