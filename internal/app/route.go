@@ -28,6 +28,8 @@ func setRoute(
 	{
 		users.POST("/register", authCtrl.UserRegistration)
 		users.POST("/login", authCtrl.UserLogin)
+		users.GET("/login/google", authCtrl.LoginWithGoogle)
+		users.GET("/login/google/callback", authCtrl.CallbackGoogle)
 	}
 
 	groups := base.Group("/groups", middleware.AuthAdminOrUser("admin", "user"))

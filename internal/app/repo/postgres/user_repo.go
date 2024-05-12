@@ -15,6 +15,7 @@ type (
 	UserRepo interface {
 		CreateUser(ctx context.Context, req models.User) (id int, err error)
 		FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error)
+		FindUserByEmailAndUsername(ctx context.Context, email, username string) (user models.User, err error)
 		GetUserByID(ctx context.Context, id int64) (user models.User, err error)
 		GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error)
@@ -42,7 +43,7 @@ func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int,
 }
 
 func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error) {
-	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmail, req)
+	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailOrUsename, req)
 	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailOrUsername err: %v", err.Error()))
@@ -82,4 +83,14 @@ func (u *UserRepoImpl) UpdateTypeUser(ctx context.Context, isActive bool, operat
 	}
 
 	return true, nil
+}
+func (u *UserRepoImpl) FindUserByEmailAndUsername(ctx context.Context, email, username string) (user models.User, err error) {
+	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailAndUsername, email, username)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailAndUsername err: %v", err.Error()))
+		return user, err
+	}
+
+	return user, nil
 }

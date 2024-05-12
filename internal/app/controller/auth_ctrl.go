@@ -30,6 +30,8 @@ type (
 	AuthCtrl interface {
 		UserRegistration(ec echo.Context) error
 		UserLogin(ec echo.Context) error
+		LoginWithGoogle(ec echo.Context) error
+		CallbackGoogle(ec echo.Context) error
 		AssignRoleDiscordToUser(ec echo.Context) error
 		RemoveRoleDiscordUser(ec echo.Context) error
 		InviteDiscordUserToGuild(ec echo.Context) error
@@ -224,6 +226,73 @@ func (ox *AuthCtrlImpl) ConnectDiscordAccountAndRemoveRole(ec echo.Context) erro
 	res, err := ox.UserSvc.ConnectDiscordAccountAndRemoveRole(ctx, code)
 	if err != nil {
 		slog.Error("ConnectDiscordAccountAndRemoveRole - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) LoginWithGoogle(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("LoginWithGoogle - something went wrong", r)
+		}
+	}()
+
+	url, err := ox.UserSvc.LoginWithGoogle(ctx)
+	if err != nil {
+		slog.Error("LoginWithGoogle - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Error:   err.Error(),
+		})
+	}
+
+	return ec.Redirect(http.StatusTemporaryRedirect, url)
+}
+
+func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("CallbackGoogle - something went wrong", r)
+		}
+	}()
+
+	// var req service.GoogleLoginReq
+	// if err := ec.Bind(&req); err != nil {
+	// 	slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
+	// 	return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+	// 		Code:    http.StatusBadRequest,
+	// 		Message: "bad request",
+	// 		Data:    struct{}{},
+	// 		Error:   err.Error(),
+	// 	})
+	// }
+
+	state := ec.QueryParam("state")
+	code := ec.QueryParam("code")
+
+	if state == "" || code == "" {
+		return ec.JSON(http.StatusBadRequest, ErrorMessage{
+			Indonesian: "Invalid request",
+			English:    "Invalid request",
+			Error:      "state or code is empty",
+		})
+	}
+
+	req := service.GoogleLoginReq{
+		State: state,
+		Code:  code,
+	}
+
+	res, err := ox.UserSvc.CallbackGoogle(ctx, req)
+	if err != nil {
+		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

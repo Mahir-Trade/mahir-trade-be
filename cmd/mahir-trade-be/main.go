@@ -7,6 +7,7 @@ import (
 	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/internal/app/infra"
 	"mahir-trade-be/internal/app/repo/discord"
+	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
@@ -58,7 +59,6 @@ func main() {
 		fmt.Println("LoadApplicationController: ", err.Error())
 		slog.Error(err.Error())
 	}
-
 	app.Start()
 }
 
@@ -78,6 +78,11 @@ func LoadApplicationConfig() error {
 		return fmt.Errorf("LoadJwtCfg: %s", err.Error())
 	}
 
+	err = di.Provide(infra.LoadGoogleCfg)
+	if err != nil {
+		return fmt.Errorf("LoadGoogleCfg: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -93,6 +98,11 @@ func LoadApplicationPackage() error {
 		return fmt.Errorf("NewDatabases: %s", err.Error())
 	}
 
+	err = di.Provide(infra.NewOauth)
+	if err != nil {
+		fmt.Println("NewOauth: ", err.Error())
+		return fmt.Errorf("NewOauth: %s", err.Error())
+	}
 	return nil
 }
 
@@ -129,6 +139,11 @@ func LoadApplicationRepository() error {
 	err = di.Provide(postgres.NewPackageRepo)
 	if err != nil {
 		return fmt.Errorf("NewPackageRepo: %s", err.Error())
+	}
+
+	err = di.Provide(google.NewGoogleRepo)
+	if err != nil {
+		return fmt.Errorf("NewGoogleRepo: %s", err.Error())
 	}
 
 	return nil
