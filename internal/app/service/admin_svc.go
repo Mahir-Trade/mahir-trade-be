@@ -47,14 +47,16 @@ func (a *AdminSvcImpl) AdminLogin(ctx context.Context, req AdminLoginRequest) (r
 		resp = models.DefaultResponse{
 			Code:    http.StatusOK,
 			Message: "Login Success",
-			Error:   struct{}{},
+			Data:    struct{}{},
 		}
 	}
 
 	admin, err := a.AdminRepo.FindByUsername(ctx, req.Identity)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][AdminLogin] error while FindByUsername err: %v", err)
-		return resp, err
+		resp.Code = http.StatusUnauthorized
+		resp.Message = "Invalid Username or Password"
+		return
 	}
 
 	if err = utils.VerifyPassword(req.Password, admin.Password); err != nil {
@@ -96,7 +98,7 @@ func (a *AdminSvcImpl) AdminRegistration(ctx context.Context, req models.Admin) 
 		resp = models.DefaultResponse{
 			Code:    http.StatusOK,
 			Message: "Registration Success",
-			Error:   struct{}{},
+			Data:    struct{}{},
 		}
 		req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 		req.Username = strings.ToLower(strings.TrimSpace(req.Username))
@@ -113,7 +115,7 @@ func (a *AdminSvcImpl) AdminRegistration(ctx context.Context, req models.Admin) 
 	_, err = a.AdminRepo.CreateAdmin(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][AdminRegistration] error while CreateAdmin err: %v", err)
-		resp.Code = http.StatusBadRequest
+		resp.Code = http.StatusInternalServerError
 		resp.Message = "Bad Request"
 		resp.Error = err.Error()
 		return
@@ -127,7 +129,7 @@ func (a *AdminSvcImpl) UpdateTypeUser(ctx context.Context, isActive bool, id int
 		resp = models.DefaultResponse{
 			Code:    http.StatusOK,
 			Message: "Success",
-			Error:   struct{}{},
+			Data:    struct{}{},
 		}
 	}
 

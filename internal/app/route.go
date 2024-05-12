@@ -17,6 +17,7 @@ func setRoute(
 	adminCtrl controller.AdminCtrl,
 	middleware middleware.MiddleWare,
 	packageCtrl controller.PackageCtrl,
+	subModuleCtrl controller.SubModuleCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -65,9 +66,21 @@ func setRoute(
 
 	modules := base.Group("/modules", middleware.AuthAdminOrUser("admin", "user"))
 	{
+		modules.GET("", moduleCtrl.GetModules)
 		modules.GET("/:module_id", moduleCtrl.GetModuleByID)
+		modules.GET("/group/:group_id", moduleCtrl.GetModulesByGroupID)
 		modules.POST("", moduleCtrl.CreateModule, middleware.AuthAdminOrUser("admin"))
 		modules.PATCH("/:module_id", moduleCtrl.UpdateModule, middleware.AuthAdminOrUser("admin"))
+	}
+
+	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		subModules.GET("/:sub_module_id", subModuleCtrl.GetSubModuleByID)
+		subModules.GET("", subModuleCtrl.GetSubModules)
+		subModules.GET("/module/:module_id", subModuleCtrl.GetSubModulesByModuleID)
+		subModules.POST("", subModuleCtrl.CreateSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.PATCH("/:sub_module_id", subModuleCtrl.UpdateSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.DELETE("/:sub_module_id", subModuleCtrl.SoftDeleteSubModule, middleware.AuthAdminOrUser("admin"))
 	}
 
 	admins := base.Group("/admins")

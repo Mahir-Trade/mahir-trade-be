@@ -86,6 +86,7 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
+		resp.Data = struct{}{}
 		req.Identity = strings.ToLower(strings.TrimSpace(req.Identity))
 	}
 
@@ -137,6 +138,7 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, cod
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
+		resp.Data = struct{}{}
 	}
 
 	user, err := u.UserRepo.GetUserByUUID(ctx, userUUID)
@@ -198,6 +200,7 @@ func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID stri
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
+		resp.Data = struct{}{}
 	}
 
 	user, err := u.UserRepo.GetUserByUUID(ctx, userUUID)
@@ -262,6 +265,7 @@ func (u *UserSvcImpl) InviteDiscordUserToGuild(ctx context.Context, code, redire
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
+		resp.Data = struct{}{}
 	}
 
 	tokenResp, err := u.DiscordRepo.ExchangeCodeForToken(code, redirectURI)
@@ -313,6 +317,7 @@ func (u *UserSvcImpl) ConnectDiscordAccountAndAssignRole(ctx context.Context, co
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
+		resp.Data = struct{}{}
 	}
 
 	redirectURI := os.Getenv("DISCORD_REDIRECT_URI_ASSIGN_ROLE")
@@ -375,6 +380,7 @@ func (u *UserSvcImpl) ConnectDiscordAccountAndRemoveRole(ctx context.Context, co
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
+		resp.Data = struct{}{}
 	}
 
 	redirectURI := os.Getenv("DISCORD_REDIRECT_URI_REMOVE_ROLE")
@@ -439,10 +445,17 @@ func (u *UserSvcImpl) LoginWithGoogle(ctx context.Context) (url string, err erro
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][LoginWithGoogle] err : %v", err))
 		return
 	}
+	slog.InfoContext(ctx, fmt.Sprintf("[service][LoginWithGoogle] url : %v", url))
 	return
 }
 
 func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error) {
+
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+		resp.Data = struct{}{}
+	}
 
 	userInfo, err := u.GoogleRepo.Callback(ctx, google.GoogleCallbackRequest{
 		State: req.State,
@@ -462,6 +475,11 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	user, err := u.UserRepo.FindUserByEmailAndUsername(ctx, userEmail, userName)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][FindUserByEmailAndUsername] err : %v", err))
+		err = fmt.Errorf("internal server error, we will fix it soon")
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
+		return
 	}
 
 	if user.UserID != 0 {
@@ -472,7 +490,7 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 		})
 		if errSign != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
-			err = fmt.Errorf("internal server error, we will fix it soon")
+			resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 			resp.Code = http.StatusInternalServerError
 			resp.Message = "internal server error, we will fix it soon"
 			return
@@ -526,9 +544,9 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 
 	if errSign != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
-		err = fmt.Errorf("internal server error, we will fix it soon")
 		resp.Code = http.StatusInternalServerError
 		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 		return
 	}
 
@@ -542,7 +560,6 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 			Token:  token,
 			Expire: exp,
 		},
-		Error: struct{}{},
 	}
 
 	return

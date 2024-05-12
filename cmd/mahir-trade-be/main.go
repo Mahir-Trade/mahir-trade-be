@@ -146,6 +146,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewGoogleRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewSubModuleRepo)
+	if err != nil {
+		return fmt.Errorf("NewSubModuleRepo: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -173,6 +178,11 @@ func LoadApplicationService() error {
 	err = di.Provide(service.NewPackageSvc)
 	if err != nil {
 		return fmt.Errorf("NewPackageSvc: %s", err.Error())
+	}
+
+	err = di.Provide(service.NewSubModuleSvc)
+	if err != nil {
+		return fmt.Errorf("NewSubModuleSvc: %s", err.Error())
 	}
 
 	return nil
@@ -206,6 +216,11 @@ func LoadApplicationController() error {
 	err = di.Provide(controller.NewPackageCtrl)
 	if err != nil {
 		return fmt.Errorf("NewPackageCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewSubModuleCtrl)
+	if err != nil {
+		return fmt.Errorf("NewSubModuleCtrl: %s", err.Error())
 	}
 
 	return nil

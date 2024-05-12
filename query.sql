@@ -8,8 +8,6 @@ CREATE TABLE "users" (
   "email" varchar(255) NOT NULL,
   "fullname" varchar(255) NOT NULL,
   "username" varchar(255) NOT NULL,
-  "discord_username" varchar(255),
-  "google_account_id" varchar(255),
   "is_active" bool DEFAULT false,
   "created_at" timestamp DEFAULT now(),
   "created_by" varchar(100) default 'SYSTEM',
@@ -21,17 +19,18 @@ CREATE TABLE "users" (
 );
 
 CREATE TABLE "admins" (
-  "admin_id" BIGSERIAL not NULL,
+  "admin_id" BIGSERIAL NOT NULL,
   "uuid" uuid DEFAULT uuid_generate_v4(),
   "email" varchar(255) UNIQUE NOT NULL,
   "username" varchar(255) UNIQUE NOT NULL,
   "password" varchar(255) NOT NULL,
-  created_at timestamp DEFAULT now(),
-  created_by varchar(100) default 'SYSTEM',
+  "created_at" timestamp DEFAULT now(),
+  "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
   "updated_by" varchar(100) default 'SYSTEM',
   "deleted_at" timestamp,
-  "deleted_by" varchar(100)
+  "deleted_by" varchar(100),
+   CONSTRAINT admins_pkey PRIMARY KEY (admin_id)
 );
 
 CREATE TABLE "groups" (

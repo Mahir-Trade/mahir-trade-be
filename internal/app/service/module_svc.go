@@ -41,7 +41,8 @@ type (
 	ModuleSvc interface {
 		CreateModule(ctx context.Context, req ModuleRequest) (resp models.DefaultResponse, err error)
 		GetModuleByID(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error)
-		GetModules(ctx context.Context, req models.GetModulesRequest, search string) (resp models.DefaultPaginationResponseData, err error)
+		GetModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
+		GetModulesByGroupID(ctx context.Context, groupID int64) (resp models.DefaultResponse, err error)
 		UpdateModule(ctx context.Context, moduleID int64, req ModuleRequest) (resp models.DefaultResponse, err error)
 	}
 
@@ -61,6 +62,7 @@ func (m *ModuleSvcImpl) CreateModule(ctx context.Context, req ModuleRequest) (re
 	{
 		resp.Code = http.StatusCreated
 		resp.Message = "Success"
+		resp.Data = struct{}{}
 	}
 
 	adminData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
@@ -123,6 +125,7 @@ func (m *ModuleSvcImpl) GetModuleByID(ctx context.Context, moduleID int64) (resp
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
+		resp.Data = struct{}{}
 	}
 
 	module, err := m.ModuleRepo.GetModuleByID(ctx, moduleID)
@@ -170,14 +173,17 @@ func (m *ModuleSvcImpl) GetModuleByID(ctx context.Context, moduleID int64) (resp
 	return
 }
 
-func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.GetModulesRequest, search string) (resp models.DefaultPaginationResponseData, err error) {
+func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error) {
 	var dataResp models.DefaultResponse
 	{
 		dataResp.Code = http.StatusOK
 		dataResp.Message = "Success"
+		dataResp.Data = struct{}{}
+
+		req.Page = req.Page - 1
 	}
 
-	modules, totalData, err := m.ModuleRepo.GetModules(ctx, req, search)
+	modules, totalData, err := m.ModuleRepo.GetModules(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetModules] error while GetModules err", "%v", err.Error())
 		dataResp.Code = http.StatusBadRequest
@@ -209,20 +215,26 @@ func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.GetModulesReq
 			data.GroupID = module.GroupID.Int64
 			data.GroupName = group.GroupName
 		}
+		if module.ThumbnailUrl.Valid {
+			data.ThumbnailUrl = module.ThumbnailUrl.String
+		}
+		if module.Tag.Valid {
+			data.Tag = module.Tag.String
+		}
 		respData = append(respData, data)
 	}
 
 	{
 		dataResp.Data = respData
-		resp.Page = uint(req.Page)
+		resp.Page = uint(req.Page) + 1
 		resp.Limit = uint(req.Limit)
 
 		totalPage := math.Ceil(float64(totalData) / float64(req.Limit))
 		resp.TotalPages = uint(totalPage)
 
-		resp.TotalItems = uint(totalData)
-		resp.HasNext = req.Page < int64(resp.TotalPages)
-		resp.HasPrevious = req.Page > 1
+		resp.TotalItems = uint(len(respData))
+		resp.HasNext = resp.Page < resp.TotalPages
+		resp.HasPrevious = resp.Page > 1
 		resp.Results = dataResp
 	}
 
@@ -233,6 +245,7 @@ func (m *ModuleSvcImpl) UpdateModule(ctx context.Context, moduleID int64, req Mo
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
+		resp.Data = struct{}{}
 	}
 
 	module, err := m.ModuleRepo.GetModuleByID(ctx, moduleID)
@@ -294,5 +307,62 @@ func (m *ModuleSvcImpl) UpdateModule(ctx context.Context, moduleID int64, req Mo
 
 	resp.Data = struct{}{}
 
+	return
+}
+
+func (m *ModuleSvcImpl) GetModulesByGroupID(ctx context.Context, groupID int64) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "Success"
+		resp.Data = struct{}{}
+	}
+
+	modules, err := m.ModuleRepo.GetModulesByGroupID(ctx, groupID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetModulesByGroupID] error while GetModulesByGroupID err", "%v", err.Error())
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
+
+	var respData []ModuleResponse
+	for _, module := range modules {
+		data := ModuleResponse{
+			ID:         module.ID,
+			UUID:       module.UUID,
+			ModuleName: module.ModuleName,
+			CreatedBy:  module.CreatedBy,
+			UpdatedBy:  module.UpdatedBy,
+			CreatedAt:  module.CreatedAt,
+			UpdatedAt:  module.UpdatedAt,
+		}
+		if module.GroupID.Valid {
+			group, errGroup := m.GroupRepo.GetGroupByID(ctx, module.GroupID.Int64)
+			if errGroup != nil {
+				slog.ErrorContext(ctx, "[service][GetModulesByGroupID] error while GetGroupByID err", "%v", errGroup.Error())
+				resp.Code = http.StatusInternalServerError
+				resp.Message = "internal server error, we will fix it soon"
+				resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+				return
+			}
+			data.GroupID = module.GroupID.Int64
+			data.GroupName = group.GroupName
+		}
+
+		if module.ThumbnailUrl.Valid {
+			data.ThumbnailUrl = module.ThumbnailUrl.String
+		}
+
+		if module.Tag.Valid {
+			data.Tag = module.Tag.String
+		}
+
+		respData = append(respData, data)
+	}
+
+	{
+		resp.Data = respData
+	}
 	return
 }

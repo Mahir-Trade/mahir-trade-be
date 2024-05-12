@@ -65,7 +65,7 @@ func (ox *AdminCtrlImpl) AdminLogin(ec echo.Context) error {
 	resp, err := ox.AdminSvc.AdminLogin(ctx, admin)
 	if err != nil {
 		slog.ErrorContext(ctx, "[controller][AdminLogin] error while AdminLogin err: %v", err)
-		return ec.JSON(http.StatusInternalServerError, resp)
+		return ec.JSON(resp.Code, resp)
 	}
 
 	return ec.JSON(resp.Code, resp)
@@ -107,7 +107,7 @@ func (ox *AdminCtrlImpl) AdminRegistration(ec echo.Context) error {
 	resp, err := ox.AdminSvc.AdminRegistration(ctx, admin)
 	if err != nil {
 		slog.ErrorContext(ctx, "[controller][AdminRegistration] error while AdminRegistration err: %v", err)
-		return ec.JSON(http.StatusInternalServerError, resp)
+		return ec.JSON(resp.Code, resp)
 	}
 
 	return ec.JSON(resp.Code, resp)

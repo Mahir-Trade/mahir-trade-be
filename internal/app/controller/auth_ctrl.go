@@ -293,8 +293,8 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 	res, err := ox.UserSvc.CallbackGoogle(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
-		return ec.JSON(http.StatusBadRequest, res)
+		return ec.JSON(res.Code, res)
 	}
 
-	return ec.JSON(http.StatusOK, res)
+	return ec.JSON(res.Code, res)
 }

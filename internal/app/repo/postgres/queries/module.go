@@ -15,7 +15,7 @@ const (
 		`
 
 	QueryGetModuleByID = `
-		SELECT id, uuid, group_id, module_name, thumbnail_url, tag, created_by, created_at, updated_at
+		SELECT id, uuid, group_id, module_name, thumbnail_url, tag, created_by, created_at, updated_at, updated_by
 		FROM modules
 		WHERE id = $1
 		`
@@ -46,12 +46,15 @@ const (
 
 	QueryGetModules = `
 		WITH count AS (
-		SELECT COUNT(*) as total_count
-		FROM modules
+			SELECT COUNT(id) as total_count
+			FROM modules
+			WHERE deleted_at IS NULL
 		)
-		SELECT count.total_count, m.id, m.group_id, m.module_name, m.thumbnail_url, m.created_by, m.created_at, m.updated_at
+		SELECT count.total_count, m.id, m.uuid, m.group_id, m.module_name, m.thumbnail_url, m.tag, m.created_by, m.created_at, m.updated_at, m.updated_by
 		FROM modules AS m
 		JOIN count ON TRUE
+		WHERE m.deleted_at IS NULL
+		ORDER BY m.created_at DESC
 		LIMIT $1
 		OFFSET $2
 		`
@@ -60,13 +63,26 @@ const (
 		WITH count AS (
 			SELECT COUNT(*) as total_count
 			FROM modules
-			WHERE module_name ILIKE '%' || $1 || '%'
+			WHERE module_name ILIKE '%' || $1 || '%' AND deleted_at IS NULL
 		)
-		SELECT count.total_count, modules.id, modules.group_id, modules.module_name, modules.thumbnail_url, modules.created_by, modules.created_at, modules.updated_at
-		FROM modules
+		SELECT count.total_count, m.id, m.uuid, m.group_id, m.module_name, m.thumbnail_url, m.tag, m.created_by, m.created_at, m.updated_at, m.updated_by
+		FROM modules AS m
 		JOIN count ON TRUE
-		WHERE module_name ILIKE '%' || $1 || '%'
+		WHERE module_name ILIKE '%' || $1 || '%' AND deleted_at IS NULL
+		ORDER BY m.created_at DESC
 		LIMIT $2
 		OFFSET $3
+		`
+
+	QueryGetModulesByGroupID = `
+		SELECT m.id, m.uuid, m.group_id, m.module_name, m.thumbnail_url, m.created_by, m.created_at, m.updated_at, m.updated_by
+		FROM modules AS m
+		WHERE m.group_id = $1 AND m.deleted_at IS NULL
+		`
+
+	QuerySoftDeleteModule = `
+		UPDATE modules
+		SET deleted_at = NOW(), deleted_by = $1, updated_at = NOW(), updated_by = $2
+		WHERE id = $3
 		`
 )

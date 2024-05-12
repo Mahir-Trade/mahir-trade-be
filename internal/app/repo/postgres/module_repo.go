@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres/queries"
@@ -15,7 +16,9 @@ type (
 		CreateModule(ctx context.Context, req models.Module) (id int, err error)
 		GetModuleByID(ctx context.Context, id int64) (module models.Module, err error)
 		UpdateModule(ctx context.Context, req models.Module) (err error)
-		GetModules(ctx context.Context, req models.GetModulesRequest, search string) (modules []models.Module, totalCount int64, err error)
+		GetModules(ctx context.Context, req models.PaginationRequest) (modules []models.Module, totalCount int64, err error)
+		GetModulesByGroupID(ctx context.Context, groupID int64) (modules []models.Module, err error)
+		SoftDeleteModule(ctx context.Context, moduleId int64, operator string) (err error)
 	}
 
 	ModuleRepoImpl struct {
@@ -65,7 +68,7 @@ func (m *ModuleRepoImpl) CreateModule(ctx context.Context, req models.Module) (i
 
 func (m *ModuleRepoImpl) GetModuleByID(ctx context.Context, id int64) (module models.Module, err error) {
 	row := m.QueryRowContext(ctx, queries.QueryGetModuleByID, id)
-	err = row.Scan(&module.ID, &module.UUID, &module.GroupID, &module.ModuleName, &module.ThumbnailUrl, &module.Tag, &module.CreatedBy, &module.CreatedAt, &module.UpdatedAt)
+	err = row.Scan(&module.ID, &module.UUID, &module.GroupID, &module.ModuleName, &module.ThumbnailUrl, &module.Tag, &module.CreatedBy, &module.CreatedAt, &module.UpdatedAt, &module.UpdatedBy)
 	if err != nil {
 		slog.ErrorContext(ctx, "[moduleRepoImpl][GetModuleByID] error while row.Scan", "%v", err.Error())
 		return module, err
@@ -75,37 +78,49 @@ func (m *ModuleRepoImpl) GetModuleByID(ctx context.Context, id int64) (module mo
 }
 
 func (m *ModuleRepoImpl) UpdateModule(ctx context.Context, req models.Module) (err error) {
+	var (
+		result sql.Result
+	)
 	if req.ThumbnailUrl.Valid && req.Tag.Valid {
-		_, err = m.ExecContext(ctx, queries.QueryUpdateModuleWithThumbnailAndTag, req.ModuleName, req.ThumbnailUrl, req.Tag, req.UpdatedBy, req.ID)
+		result, err = m.ExecContext(ctx, queries.QueryUpdateModuleWithThumbnailAndTag, req.ModuleName, req.ThumbnailUrl, req.Tag, req.UpdatedBy, req.ID)
 	} else if req.ThumbnailUrl.Valid {
-		_, err = m.ExecContext(ctx, queries.QueryUpdateModuleWithThumbnail, req.ModuleName, req.ThumbnailUrl, req.UpdatedBy, req.ID)
+		result, err = m.ExecContext(ctx, queries.QueryUpdateModuleWithThumbnail, req.ModuleName, req.ThumbnailUrl, req.UpdatedBy, req.ID)
 	} else if req.Tag.Valid {
-		_, err = m.ExecContext(ctx, queries.QueryUpdateModuleWithTag, req.ModuleName, req.Tag, req.UpdatedBy, req.ID)
+		result, err = m.ExecContext(ctx, queries.QueryUpdateModuleWithTag, req.ModuleName, req.Tag, req.UpdatedBy, req.ID)
 	} else {
-		_, err = m.ExecContext(ctx, queries.QueryUpdateModule, req.ModuleName, req.UpdatedBy, req.ID)
+		result, err = m.ExecContext(ctx, queries.QueryUpdateModule, req.ModuleName, req.UpdatedBy, req.ID)
 	}
 	if err != nil {
 		slog.ErrorContext(ctx, "[moduleRepoImpl][UpdateModule] error while ExecContext", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return err
+	}
+
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][UpdateModule] error while RowsAffected", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
 		return err
 	}
 
 	return nil
 }
 
-func (m *ModuleRepoImpl) GetModules(ctx context.Context, req models.GetModulesRequest, search string) (modules []models.Module, totalCount int64, err error) {
+func (m *ModuleRepoImpl) GetModules(ctx context.Context, req models.PaginationRequest) (modules []models.Module, totalCount int64, err error) {
 	var (
 		rows *sql.Rows
 	)
-	if search != "" {
-		rows, err = m.QueryContext(ctx, queries.QueryGetModulesWithSearch, search, req.Limit, req.Page)
+	if req.Search != "" {
+		rows, err = m.QueryContext(ctx, queries.QueryGetModulesWithSearch, req.Search, req.Limit, req.Page)
 		if err != nil {
 			slog.ErrorContext(ctx, "[moduleRepoImpl][searchExist] error while QueryContext err", "%v", err.Error())
+			err = fmt.Errorf("something went wrong, we will fix it soon")
 			return
 		}
 	} else {
 		rows, err = m.QueryContext(ctx, queries.QueryGetModules, req.Limit, req.Page)
 		if err != nil {
 			slog.ErrorContext(ctx, "[moduleRepoImpl][searchNotExist] error while QueryContext", "%v", err.Error())
+			err = fmt.Errorf("something went wrong, we will fix it soon")
 			return
 		}
 	}
@@ -114,7 +129,7 @@ func (m *ModuleRepoImpl) GetModules(ctx context.Context, req models.GetModulesRe
 
 	for rows.Next() {
 		var module models.Module
-		err = rows.Scan(&totalCount, &module.ID, &module.GroupID, &module.ModuleName, &module.ThumbnailUrl, &module.CreatedBy, &module.CreatedAt, &module.UpdatedAt)
+		err = rows.Scan(&totalCount, &module.ID, &module.UUID, &module.GroupID, &module.ModuleName, &module.ThumbnailUrl, &module.Tag, &module.CreatedBy, &module.CreatedAt, &module.UpdatedAt, &module.UpdatedBy)
 		if err != nil {
 			slog.ErrorContext(ctx, "[moduleRepoImpl][scan] error while rows.Scan", "%v", err.Error())
 			return
@@ -124,4 +139,44 @@ func (m *ModuleRepoImpl) GetModules(ctx context.Context, req models.GetModulesRe
 	}
 
 	return
+}
+
+func (m *ModuleRepoImpl) GetModulesByGroupID(ctx context.Context, groupID int64) (modules []models.Module, err error) {
+	rows, err := m.QueryContext(ctx, queries.QueryGetModulesByGroupID, groupID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][GetModulesByGroupID] error while QueryContext", "%v", err.Error())
+		return
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var module models.Module
+		err = rows.Scan(&module.ID, &module.UUID, &module.GroupID, &module.ModuleName, &module.ThumbnailUrl, &module.CreatedBy, &module.CreatedAt, &module.UpdatedAt, &module.UpdatedBy)
+		if err != nil {
+			slog.ErrorContext(ctx, "[moduleRepoImpl][GetModulesByGroupID] error while rows.Scan", "%v", err.Error())
+			return
+		}
+
+		modules = append(modules, module)
+	}
+
+	return
+}
+
+func (m *ModuleRepoImpl) SoftDeleteModule(ctx context.Context, moduleId int64, operator string) (err error) {
+	result, err := m.ExecContext(ctx, queries.QuerySoftDeleteModule, operator, operator, moduleId)
+	if err != nil {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][SoftDeleteModule] error while ExecContext", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return err
+	}
+
+	if affected, _ := result.RowsAffected(); affected == 0 {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][SoftDeleteModule] error while RowsAffected", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return err
+	}
+
+	return nil
 }
