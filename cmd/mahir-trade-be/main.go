@@ -11,6 +11,7 @@ import (
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/di"
+	"mahir-trade-be/pkg/middleware"
 
 	"github.com/joho/godotenv"
 )
@@ -110,6 +111,15 @@ func LoadApplicationRepository() error {
 	if err != nil {
 		return fmt.Errorf("NewDiscordRepo: %s", err.Error())
 	}
+	err = di.Provide(postgres.NewModuleRepo)
+	if err != nil {
+		return fmt.Errorf("NewModuleRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewAdminRepo)
+	if err != nil {
+		return fmt.Errorf("NewAdminRepo: %s", err.Error())
+	}
 
 	return nil
 }
@@ -125,6 +135,16 @@ func LoadApplicationService() error {
 		return fmt.Errorf("NewGroupSvc: %s", err.Error())
 	}
 
+	err = di.Provide(service.NewModuleSvc)
+	if err != nil {
+		return fmt.Errorf("NewModuleSvc: %s", err.Error())
+	}
+
+	err = di.Provide(service.NewAdminSvc)
+	if err != nil {
+		return fmt.Errorf("NewAdminSvc: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -137,6 +157,21 @@ func LoadApplicationController() error {
 	err = di.Provide(controller.NewGroupCtrl)
 	if err != nil {
 		return fmt.Errorf("NewGroupCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewModuleCtrl)
+	if err != nil {
+		return fmt.Errorf("NewModuleCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewAdminCtrl)
+	if err != nil {
+		return fmt.Errorf("NewAdminCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(middleware.NewMiddleWare)
+	if err != nil {
+		return fmt.Errorf("NewMiddleWare: %s", err.Error())
 	}
 
 	return nil

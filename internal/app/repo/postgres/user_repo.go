@@ -17,6 +17,7 @@ type (
 		FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error)
 		GetUserByID(ctx context.Context, id int64) (user models.User, err error)
 		GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error)
+		UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error)
 	}
 
 	UserRepoImpl struct {
@@ -71,4 +72,14 @@ func (u *UserRepoImpl) GetUserByUUID(ctx context.Context, uuid string) (user mod
 	}
 
 	return user, nil
+}
+
+func (u *UserRepoImpl) UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error) {
+	_, err = u.QueryContext(ctx, queries.QueryUpdateTypeUser, isActive, operator, id)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while UpdateTypeUser err: %v", err.Error()))
+		return typeUser, err
+	}
+
+	return true, nil
 }

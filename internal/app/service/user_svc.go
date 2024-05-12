@@ -22,7 +22,7 @@ type (
 
 	JWTData struct {
 		Email   string `json:"email"`
-		UserID  string `json:"user_id"`
+		UserID  int64  `json:"user_id"`
 		Usename string `json:"username"`
 	}
 
@@ -96,7 +96,7 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 
 	token, exp, err := utils.Sign(JWTData{
 		Email:   user.Email,
-		UserID:  user.UUID,
+		UserID:  user.UserID,
 		Usename: user.Username,
 	})
 

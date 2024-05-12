@@ -15,4 +15,10 @@ const (
 	QueryGetUserByUUID = `
 		SELECT user_id, uuid, fullname, phone_number, username, password FROM users WHERE uuid = $1 AND deleted_at IS NULL
 	`
+
+	QueryUpdateTypeUser = `
+		UPDATE users
+		SET is_active = $1, updated_by = $2, updated_at = NOW()
+		WHERE user_id = $3
+		`
 )
