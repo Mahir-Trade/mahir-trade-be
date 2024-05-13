@@ -33,3 +33,12 @@ func LoadJwtCfg() (*JwtCfg, error) {
 	}
 	return &cfg, nil
 }
+
+func LoadGoogleCfg() (*GoogleCfg, error) {
+	var cfg GoogleCfg
+	prefix := "GOOGLE"
+	if err := envconfig.Process(prefix, &cfg); err != nil {
+		return nil, fmt.Errorf("%s: %w", prefix, err)
+	}
+	return &cfg, nil
+}
