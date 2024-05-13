@@ -144,9 +144,8 @@ func (ox *AuthCtrlImpl) AssignRoleDiscordToUser(ec echo.Context) error {
 		}
 	}()
 
-	userUUID := ec.Get("user_id").(string)
 	code := ec.QueryParam("code")
-	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, userUUID, code)
+	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, code)
 	if err != nil {
 		slog.Error("AssignRoleDiscordToUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
@@ -164,8 +163,7 @@ func (ox *AuthCtrlImpl) RemoveRoleDiscordUser(ec echo.Context) error {
 		}
 	}()
 
-	userUUID := ec.Get("user_id").(string)
-	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx, userUUID)
+	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx)
 	if err != nil {
 		slog.Error("RemoveRoleDiscordUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)

@@ -18,6 +18,7 @@ func setRoute(
 	middleware middleware.MiddleWare,
 	packageCtrl controller.PackageCtrl,
 	subModuleCtrl controller.SubModuleCtrl,
+	reportCtrl controller.ReportCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -87,5 +88,14 @@ func setRoute(
 	{
 		admins.POST("/register", adminCtrl.AdminRegistration)
 		admins.POST("/login", adminCtrl.AdminLogin)
+	}
+
+	report := base.Group("/reports", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		report.GET("/:id", reportCtrl.GetReportByID)
+		report.GET("", reportCtrl.GetReports)
+		report.POST("", reportCtrl.CreateReport, middleware.AuthAdminOrUser("admin"))
+		report.PUT("/:id", reportCtrl.UpdateReport, middleware.AuthAdminOrUser("admin"))
+		report.DELETE("/:id", reportCtrl.DeleteReport, middleware.AuthAdminOrUser("admin"))
 	}
 }

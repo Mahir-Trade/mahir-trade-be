@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
@@ -9,6 +10,7 @@ import (
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
+	"mahir-trade-be/pkg/middleware"
 	"net/http"
 	"os"
 	"strings"
@@ -36,8 +38,8 @@ type (
 	UserSvc interface {
 		UserRegistration(ctx context.Context, req models.User) (err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
-		AssignRoleDiscordToUser(ctx context.Context, userUUID, code string) (resp models.DefaultResponse, err error)
-		RemoveRoleDiscordToUser(ctx context.Context, userUUID string) (resp models.DefaultResponse, err error)
+		AssignRoleDiscordToUser(ctx context.Context, code string) (resp models.DefaultResponse, err error)
+		RemoveRoleDiscordToUser(ctx context.Context) (resp models.DefaultResponse, err error)
 		InviteDiscordUserToGuild(ctx context.Context, code, redirectURI string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccountAndAssignRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccountAndRemoveRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
@@ -134,30 +136,19 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 	return
 }
 
-func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, code string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, code string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
 		resp.Data = struct{}{}
 	}
 
-	user, err := u.UserRepo.GetUserByUUID(ctx, userUUID)
-	if err != nil {
-		resp.Code = http.StatusNotFound
-		resp.Message = "user not found"
-		resp.Error = err.Error()
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][GetUserByID] err : %v", err))
-
-		return resp, err
-	}
-
-	if user.UserID == 0 {
-		resp.Code = http.StatusNotFound
-		resp.Message = "user not found"
-		resp.Error = "user not found"
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser] err : user not found"))
-
-		return resp, fmt.Errorf("user not found")
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
 	}
 
 	redirectURI := os.Getenv("DISCORD_REDIRECT_URI_ASSIGN_ROLE")
@@ -179,7 +170,7 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, cod
 	}
 
 	_, err = u.DiscordAccountrepo.CreateDiscordAccount(ctx, models.DiscordAccount{
-		UserID:           int64(user.UserID),
+		UserID:           int64(userData.UserID),
 		DiscordAccountID: resp.Data.(discord.DiscordUser).ID,
 		Username:         resp.Data.(discord.DiscordUser).Username,
 		Email:            resp.Data.(discord.DiscordUser).Email,
@@ -196,33 +187,22 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, userUUID, cod
 	return
 }
 
-func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context, userUUID string) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "success"
 		resp.Data = struct{}{}
 	}
 
-	user, err := u.UserRepo.GetUserByUUID(ctx, userUUID)
-	if err != nil {
-		resp.Code = http.StatusNotFound
-		resp.Message = "user not found"
-		resp.Error = err.Error()
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][RemoveRoleDiscordToUser][GetUserByID] err : %v", err))
-
-		return resp, err
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
 	}
 
-	if user.UserID == 0 {
-		resp.Code = http.StatusNotFound
-		resp.Message = "user not found"
-		resp.Error = "user not found"
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][RemoveRoleDiscordToUser] err : user not found"))
-
-		return resp, fmt.Errorf("user not found")
-	}
-
-	discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, int64(user.UserID))
+	discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, int64(userData.UserID))
 	if err != nil {
 		resp.Code = http.StatusNotFound
 		resp.Message = "discord account not found"
