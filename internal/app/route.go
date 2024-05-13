@@ -13,7 +13,11 @@ func setRoute(
 
 	authCtrl controller.AuthCtrl,
 	groupCtrl controller.GroupCtrl,
+	moduleCtrl controller.ModuleCtrlImpl,
+	adminCtrl controller.AdminCtrl,
+	middleware middleware.MiddleWare,
 	packageCtrl controller.PackageCtrl,
+	subModuleCtrl controller.SubModuleCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -25,15 +29,18 @@ func setRoute(
 	{
 		users.POST("/register", authCtrl.UserRegistration)
 		users.POST("/login", authCtrl.UserLogin)
+		users.GET("/login/google", authCtrl.LoginWithGoogle)
+		users.GET("/login/google/callback", authCtrl.CallbackGoogle)
 	}
 
-	groups := base.Group("/groups")
+	groups := base.Group("/groups", middleware.AuthAdminOrUser("admin", "user"))
 	{
-		groups.POST("", groupCtrl.CreateGroup)
-		groups.GET("/:id", groupCtrl.GetGroupByID)
 		groups.GET("", groupCtrl.GetGroups)
-		groups.PUT("/:id", groupCtrl.UpdateGroup)
-		groups.DELETE("/:id", groupCtrl.DeleteGroup)
+		groups.GET("/:id", groupCtrl.GetGroupByID)
+
+		groups.POST("", groupCtrl.CreateGroup, middleware.AuthAdminOrUser("admin"))
+		groups.PUT("/:id", groupCtrl.UpdateGroup, middleware.AuthAdminOrUser("admin"))
+		groups.DELETE("/:id", groupCtrl.DeleteGroup, middleware.AuthAdminOrUser("admin"))
 	}
 
 	discord := base.Group("/discord")
@@ -44,16 +51,41 @@ func setRoute(
 		discord.GET("/account/remove-role", authCtrl.ConnectDiscordAccountAndRemoveRole)
 
 		// internal
-		discord.POST("/connect-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
-		discord.POST("/remove-role", middleware.AuthMiddleware(authCtrl.RemoveRoleDiscordUser))
+		discord.POST("/connect-role", authCtrl.AssignRoleDiscordToUser, middleware.AuthAdminOrUser("user"))
+		discord.POST("/remove-role", authCtrl.RemoveRoleDiscordUser, middleware.AuthAdminOrUser("user"))
 	}
 
-	packageRoute := base.Group("/packages")
+	packageRoute := base.Group("/packages", middleware.AuthAdminOrUser("admin", "user"))
 	{
-		packageRoute.POST("", packageCtrl.CreatePackage)
 		packageRoute.GET("/:id", packageCtrl.GetPackageByID)
 		packageRoute.GET("", packageCtrl.GetPackages)
-		packageRoute.PUT("/:id", packageCtrl.UpdatePackage)
-		packageRoute.DELETE("/:id", packageCtrl.DeletePackage)
+		packageRoute.POST("", packageCtrl.CreatePackage, middleware.AuthAdminOrUser("admin"))
+		packageRoute.PUT("/:id", packageCtrl.UpdatePackage, middleware.AuthAdminOrUser("admin"))
+		packageRoute.DELETE("/:id", packageCtrl.DeletePackage, middleware.AuthAdminOrUser("admin"))
+	}
+
+	modules := base.Group("/modules", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		modules.GET("", moduleCtrl.GetModules)
+		modules.GET("/:module_id", moduleCtrl.GetModuleByID)
+		modules.GET("/group/:group_id", moduleCtrl.GetModulesByGroupID)
+		modules.POST("", moduleCtrl.CreateModule, middleware.AuthAdminOrUser("admin"))
+		modules.PATCH("/:module_id", moduleCtrl.UpdateModule, middleware.AuthAdminOrUser("admin"))
+	}
+
+	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		subModules.GET("/:sub_module_id", subModuleCtrl.GetSubModuleByID)
+		subModules.GET("", subModuleCtrl.GetSubModules)
+		subModules.GET("/module/:module_id", subModuleCtrl.GetSubModulesByModuleID)
+		subModules.POST("", subModuleCtrl.CreateSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.PATCH("/:sub_module_id", subModuleCtrl.UpdateSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.DELETE("/:sub_module_id", subModuleCtrl.SoftDeleteSubModule, middleware.AuthAdminOrUser("admin"))
+	}
+
+	admins := base.Group("/admins")
+	{
+		admins.POST("/register", adminCtrl.AdminRegistration)
+		admins.POST("/login", adminCtrl.AdminLogin)
 	}
 }

@@ -3,12 +3,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE "users" (
   "user_id" BIGSERIAL not NULL,
   "uuid" uuid DEFAULT uuid_generate_v4(),
-  "phone_number" varchar(40) NOT NULL,
+  "phone_number" varchar(40) NULL,
   "password" varchar(255) NOT NULL,
-  "email" varchar(255) UNIQUE NOT NULL,
+  "email" varchar(255) NOT NULL,
   "fullname" varchar(255) NOT NULL,
-  "username" varchar(255) UNIQUE NOT NULL,
-  "google_account_id" varchar(255),
+  "username" varchar(255) NOT NULL,
+  "is_active" bool DEFAULT false,
   "created_at" timestamp DEFAULT now(),
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),
@@ -16,6 +16,21 @@ CREATE TABLE "users" (
   "deleted_at" timestamp,
   "deleted_by" varchar(100),
   CONSTRAINT users_pkey PRIMARY KEY (user_id)
+);
+
+CREATE TABLE "admins" (
+  "admin_id" BIGSERIAL NOT NULL,
+  "uuid" uuid DEFAULT uuid_generate_v4(),
+  "email" varchar(255) UNIQUE NOT NULL,
+  "username" varchar(255) UNIQUE NOT NULL,
+  "password" varchar(255) NOT NULL,
+  "created_at" timestamp DEFAULT now(),
+  "created_by" varchar(100) default 'SYSTEM',
+  "updated_at" timestamp DEFAULT now(),
+  "updated_by" varchar(100) default 'SYSTEM',
+  "deleted_at" timestamp,
+  "deleted_by" varchar(100),
+   CONSTRAINT admins_pkey PRIMARY KEY (admin_id)
 );
 
 CREATE TABLE "groups" (
@@ -205,6 +220,7 @@ CREATE INDEX "idx_order_package_id" ON "orders" ("package_id" DESC);
 CREATE INDEX "idx_order_payment_code" ON "orders" ("payment_code" DESC);
 CREATE INDEX "idx_transaction_order_id" ON "transactions" ("order_id" DESC);
 CREATE INDEX "idx_general_logs_user_id" ON "general_logs" ("user_id" DESC);
+CREATE UNIQUE INDEX "c_uidx_user_email" ON "users" ("email", "username" DESC);
 
 -- INDEX UUID
 CREATE INDEX "idx_user_uuid" ON "users" ("uuid");
@@ -218,3 +234,4 @@ CREATE INDEX "idx_user_membership_uuid" ON "user_memberships" ("uuid");
 CREATE INDEX "idx_order_uuid" ON "orders" ("uuid");
 CREATE INDEX "idx_transaction_uuid" ON "transactions" ("uuid");
 CREATE INDEX "idx_general_logs_uuid" ON "general_logs" ("uuid");
+CREATE INDEX "idx_admin_uuid" ON "admins" ("uuid");
