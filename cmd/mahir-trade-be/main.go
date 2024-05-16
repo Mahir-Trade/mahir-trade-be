@@ -8,6 +8,7 @@ import (
 	"mahir-trade-be/internal/app/infra"
 	"mahir-trade-be/internal/app/repo/discord"
 	"mahir-trade-be/internal/app/repo/google"
+	"mahir-trade-be/internal/app/repo/midtrans"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
@@ -156,6 +157,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewReportRepo: %s", err.Error())
 	}
 
+	err = di.Provide(midtrans.NewMidtransRepo)
+	if err != nil {
+		return fmt.Errorf("NewMidtransRepo: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -193,6 +199,11 @@ func LoadApplicationService() error {
 	err = di.Provide(service.NewReportSvc)
 	if err != nil {
 		return fmt.Errorf("NewReportSvc: %s", err.Error())
+	}
+
+	err = di.Provide(service.NewPaymentSvc)
+	if err != nil {
+		return fmt.Errorf("NewPaymentSvc: %s", err.Error())
 	}
 
 	return nil
@@ -236,6 +247,11 @@ func LoadApplicationController() error {
 	err = di.Provide(controller.NewReportCtrl)
 	if err != nil {
 		return fmt.Errorf("NewReportCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewPaymentCtrl)
+	if err != nil {
+		return fmt.Errorf("NewPaymentCtrl: %s", err.Error())
 	}
 
 	return nil

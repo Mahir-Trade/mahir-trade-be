@@ -19,6 +19,7 @@ func setRoute(
 	packageCtrl controller.PackageCtrl,
 	subModuleCtrl controller.SubModuleCtrl,
 	reportCtrl controller.ReportCtrl,
+	paymentCtrl controller.PaymentCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -97,5 +98,10 @@ func setRoute(
 		report.POST("", reportCtrl.CreateReport, middleware.AuthAdminOrUser("admin"))
 		report.PUT("/:id", reportCtrl.UpdateReport, middleware.AuthAdminOrUser("admin"))
 		report.DELETE("/:id", reportCtrl.DeleteReport, middleware.AuthAdminOrUser("admin"))
+	}
+
+	order := base.Group("/orders", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		order.POST("/create", paymentCtrl.CreatePayment, middleware.AuthAdminOrUser("user"))
 	}
 }
