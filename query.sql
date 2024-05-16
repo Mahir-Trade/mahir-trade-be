@@ -138,6 +138,7 @@ CREATE TABLE "orders" (
   "package_id" BIGINT,
   "status" varchar(30),
   "payment_code" varchar(255),
+  "payment_url" text,
   "created_at" timestamp DEFAULT now(),
   "created_by" varchar(100) default 'SYSTEM',
   "updated_at" timestamp DEFAULT now(),

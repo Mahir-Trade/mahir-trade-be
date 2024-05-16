@@ -44,7 +44,7 @@ func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int,
 
 func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailOrUsename, req)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailOrUsername err: %v", err.Error()))
 		return user, err
@@ -55,7 +55,7 @@ func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string
 
 func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserByID, id)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByID err: %v", err.Error()))
 		return user, err
@@ -66,7 +66,7 @@ func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.U
 
 func (u *UserRepoImpl) GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserByUUID, uuid)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByUUID err: %v", err.Error()))
 		return user, err
@@ -86,7 +86,7 @@ func (u *UserRepoImpl) UpdateTypeUser(ctx context.Context, isActive bool, operat
 }
 func (u *UserRepoImpl) FindUserByEmailAndUsername(ctx context.Context, email, username string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailAndUsername, email, username)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailAndUsername err: %v", err.Error()))
 		return user, err

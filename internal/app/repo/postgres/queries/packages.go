@@ -3,7 +3,7 @@ package queries
 const (
 	QueryCreatePackage = `
 		INSERT INTO packages (price, duration_in_month, description, created_by, updated_by)
-		VALUES ($1, $2, $3, SYSTEM, SYSTEM)
+		VALUES ($1, $2, $3, 'SYSTEM', 'SYSTEM')
 		RETURNING id
 	`
 
