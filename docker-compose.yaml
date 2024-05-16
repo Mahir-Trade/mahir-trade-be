@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  postgres:
+  mahir-trade-db:
     image: postgres:latest
     restart: always
     environment:
@@ -20,9 +20,9 @@ services:
     ports:
       - "8089:8089"
     depends_on:
-      - postgres
+      - mahir-trade-db
     environment:
-      PG_HOST: postgres
+      PG_HOST: mahir-trade-db
       PG_PORT: "5432"
       PG_DBUSER: postgres
       PG_DBPASS: postgres
