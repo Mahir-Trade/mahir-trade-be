@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"mahir-trade-be/internal/app/models"
 	"net/http"
 	"os"
 	"time"
@@ -15,53 +17,9 @@ import (
 )
 
 type (
-	TransactionDetails struct {
-		OrderID     string  `json:"order_id"`
-		GrossAmount float64 `json:"gross_amount"`
-		// PaymentLinkID string  `json:"payment_link_id"`
-	}
-
-	Expiry struct {
-		StartTime string `json:"start_time"`
-		Duration  int    `json:"duration"`
-		Unit      string `json:"unit"`
-	}
-
-	ItemDetails struct {
-		// ID           string  `json:"id"`
-		Name     string  `json:"name"`
-		Price    float64 `json:"price"`
-		Quantity int     `json:"quantity"`
-		// Brand        string  `json:"brand"`
-		// Category     string  `json:"category"`
-		// MerchantName string  `json:"merchant_name"`
-	}
-
-	CustomerDetails struct {
-		FirstName string `json:"first_name"`
-		// LastName  string `json:"last_name"`
-		Email string `json:"email"`
-		Phone string `json:"phone"`
-		// Notes     string `json:"notes"`
-	}
-
-	GeneratePaymentLinkRequest struct {
-		TransactionDetails TransactionDetails `json:"transaction_details"`
-		UsageLimit         int                `json:"usage_limit"`
-		Expiry             Expiry             `json:"expiry"`
-		EnabledPayments    []string           `json:"enabled_payments"`
-		ItemDetails        []ItemDetails      `json:"item_details"`
-		CustomerDetails    CustomerDetails    `json:"customer_details"`
-	}
-
-	GeneratePaymentLinkResponse struct {
-		OrderID       string   `json:"order_id,omitempty"`
-		PaymentURL    string   `json:"payment_url,omitempty"`
-		ErrorMessages []string `json:"error_messages,omitempty"`
-	}
-
 	MidtransRepo interface {
-		GeneratePaymentLink(ctx context.Context, req GeneratePaymentLinkRequest) (res GeneratePaymentLinkResponse, err error)
+		GeneratePaymentLink(ctx context.Context, req models.MidtransGeneratePaymentLinkRequest) (res models.MidtransGeneratePaymentLinkResponse, err error)
+		MidtransCheckStatusTransaction(ctx context.Context, orderID string) (res models.MidtransCheckStatusResponse, err error)
 	}
 
 	MidtransRepoImpl struct {
@@ -80,13 +38,13 @@ func generateTokenAuthorization() string {
 	return "Basic " + encoded
 }
 
-func (m *MidtransRepoImpl) GeneratePaymentLink(ctx context.Context, req GeneratePaymentLinkRequest) (res GeneratePaymentLinkResponse, err error) {
+func (m *MidtransRepoImpl) GeneratePaymentLink(ctx context.Context, req models.MidtransGeneratePaymentLinkRequest) (res models.MidtransGeneratePaymentLinkResponse, err error) {
 	generatePaymentLinkURL := os.Getenv("MIDTRANS_BASE_URL") + "/v1/payment-links"
 
-	requestPayload := GeneratePaymentLinkRequest{
+	requestPayload := models.MidtransGeneratePaymentLinkRequest{
 		TransactionDetails: req.TransactionDetails,
 		UsageLimit:         1,
-		Expiry: Expiry{
+		Expiry: models.Expiry{
 			StartTime: time.Now().Format("2006-01-02 15:04 -0700"),
 			Duration:  1,
 			Unit:      "days",
@@ -138,6 +96,41 @@ func (m *MidtransRepoImpl) GeneratePaymentLink(ctx context.Context, req Generate
 	err = json.Unmarshal(body, &res)
 	if err != nil {
 		slog.ErrorContext(ctx, "[repo][midtrans][Generate PaymentLink] Error unmarshal response body: ", err)
+		return res, err
+	}
+
+	return res, nil
+}
+
+func (m *MidtransRepoImpl) MidtransCheckStatusTransaction(ctx context.Context, orderID string) (res models.MidtransCheckStatusResponse, err error) {
+	checkStatusURL := os.Getenv("MIDTRANS_BASE_URL") + fmt.Sprintf("/v2/%s/status", orderID)
+
+	request, err := http.NewRequest("GET", checkStatusURL, nil)
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][midtrans][CheckStatusTransaction] Error create new request: ", err)
+		return res, err
+	}
+
+	request.Header.Set("Authorization", generateTokenAuthorization())
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][midtrans][CheckStatusTransaction] Error sending request: ", err)
+		return res, err
+	}
+
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][midtrans][CheckStatusTransaction] Error reading response body: ", err)
+		return res, err
+	}
+
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][midtrans][CheckStatusTransaction] Error unmarshal response body: ", err)
 		return res, err
 	}
 

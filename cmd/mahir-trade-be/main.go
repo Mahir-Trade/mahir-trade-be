@@ -162,6 +162,26 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewMidtransRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewOrderRepo)
+	if err != nil {
+		return fmt.Errorf("NewOrderRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewTransactionRepo)
+	if err != nil {
+		return fmt.Errorf("NewTransactionRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewUserMembershipRepo)
+	if err != nil {
+		return fmt.Errorf("NewUserMembershipRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewGeneralLogRepo)
+	if err != nil {
+		return fmt.Errorf("NewGeneralLogRepo: %s", err.Error())
+	}
+
 	return nil
 }
 

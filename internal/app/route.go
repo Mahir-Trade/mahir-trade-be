@@ -103,5 +103,11 @@ func setRoute(
 	order := base.Group("/orders", middleware.AuthAdminOrUser("admin", "user"))
 	{
 		order.POST("/create", paymentCtrl.CreatePayment, middleware.AuthAdminOrUser("user"))
+
+	}
+
+	// Public route
+	{
+		base.POST("/payment-link-callback", paymentCtrl.PaymentLinkCallback)
 	}
 }

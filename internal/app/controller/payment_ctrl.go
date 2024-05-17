@@ -14,6 +14,7 @@ import (
 type (
 	PaymentCtrl interface {
 		CreatePayment(ec echo.Context) error
+		PaymentLinkCallback(ec echo.Context) error
 	}
 
 	PaymentCtrlImpl struct {
@@ -69,4 +70,37 @@ func (p *PaymentCtrlImpl) CreatePayment(ec echo.Context) error {
 	}
 
 	return ec.JSON(http.StatusOK, resp)
+}
+
+func (p *PaymentCtrlImpl) PaymentLinkCallback(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("PaymentLinkCallback - something went wrong", r)
+		}
+	}()
+
+	var req models.MidtransCallbackRequest
+
+	if err := ec.Bind(&req); err != nil {
+		slog.Error("PaymentLinkCallback - something went wrong, bind error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   "invalid pagination request",
+		})
+	}
+
+	err := p.PaymentSvc.MidtransPaymentLinkNotification(ctx, req)
+	if err != nil {
+		slog.Error("PaymentLinkCallback - something went wrong, MidtransPaymentLinkNotification error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "something went wrong",
+			Error:   err.Error(),
+		})
+	}
+
+	return ec.JSON(http.StatusOK, "success")
 }
