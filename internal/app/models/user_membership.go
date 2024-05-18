@@ -1,0 +1,15 @@
+package models
+
+type (
+	UserMembership struct {
+		ID                 int64  `json:"id,omitempty"`
+		UserID             int64  `json:"user_id" validate:"required"`
+		PackageID          int64  `json:"package_id" validate:"required"`
+		ExpiredAt          string `json:"expired_at" validate:"required"`
+		IsMembershipActive bool   `json:"is_membership_active" validate:"required"`
+		CreatedBy          string `json:"created_by,omitempty"`
+		UpdatedBy          string `json:"updated_by,omitempty"`
+		CreatedAt          string `json:"created_at,omitempty"`
+		UpdatedAt          string `json:"updated_at,omitempty"`
+	}
+)
