@@ -96,9 +96,8 @@ func (a *AdminSvcImpl) AdminLogin(ctx context.Context, req AdminLoginRequest) (r
 func (a *AdminSvcImpl) AdminRegistration(ctx context.Context, req models.Admin) (resp models.DefaultResponse, err error) {
 	{
 		resp = models.DefaultResponse{
-			Code:    http.StatusOK,
+			Code:    http.StatusCreated,
 			Message: "Registration Success",
-			Data:    struct{}{},
 		}
 		req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 		req.Username = strings.ToLower(strings.TrimSpace(req.Username))
@@ -112,13 +111,36 @@ func (a *AdminSvcImpl) AdminRegistration(ctx context.Context, req models.Admin) 
 		}
 	}
 
-	_, err = a.AdminRepo.CreateAdmin(ctx, req)
+	adminId, err := a.AdminRepo.CreateAdmin(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][AdminRegistration] error while CreateAdmin err: %v", err)
 		resp.Code = http.StatusInternalServerError
 		resp.Message = "Bad Request"
 		resp.Error = err.Error()
 		return
+	}
+
+	dataJwt := middleware.UserCtxReq{
+		UserID:   int64(adminId),
+		Email:    req.Email,
+		Username: req.Username,
+	}
+
+	token, exp, err := utils.Sign(dataJwt)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][AdminRegistration] error while Sign err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = utils.ErrorInternalServer
+		resp.Error = err.Error()
+		return
+	}
+
+	resp.Data = struct {
+		Token string `json:"token"`
+		Exp   int64  `json:"exp"`
+	}{
+		Token: token,
+		Exp:   exp,
 	}
 
 	return

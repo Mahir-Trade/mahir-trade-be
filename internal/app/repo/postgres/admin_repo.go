@@ -3,8 +3,11 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres/queries"
+	"strings"
 
 	"go.uber.org/dig"
 )
@@ -37,6 +40,11 @@ func (a *AdminRepoImpl) CreateAdmin(ctx context.Context, req models.Admin) (id i
 
 	rows, err = a.QueryContext(ctx, queries.QueryCreateAdmin, req.Email, req.Username, req.Password)
 	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while CreateAdmin err: %v", err.Error()))
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return id, fmt.Errorf("email or username already exist")
+		}
+
 		return id, err
 	}
 
