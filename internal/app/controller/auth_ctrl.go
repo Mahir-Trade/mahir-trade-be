@@ -20,13 +20,6 @@ type (
 		Error      any    `json:"error,omitempty"`
 	}
 
-	Resp struct {
-		Code       int    `json:"code"`
-		Message    string `json:"message,omitempty"`
-		Data       any    `json:"data,omitempty"`
-		ErrMessage string `json:"error_message,omitempty"`
-	}
-
 	AuthCtrl interface {
 		UserRegistration(ec echo.Context) error
 		UserLogin(ec echo.Context) error
@@ -62,10 +55,11 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 	var user models.User
 
 	if err := ec.Bind(&user); err != nil {
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "Invalid request body",
-			English:    "Invalid request body",
-			Error:      err.Error(),
+		slog.Error("UserRegistration - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: utils.ErrorInvalidRequestBody,
+			Error:   err.Error(),
 		})
 	}
 
@@ -74,23 +68,21 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 	err := validate.Struct(user)
 	if err != nil {
 		errors := err.(validator.ValidationErrors)
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "Invalid request body",
-			English:    "invalid request body",
-			Error:      errors.Error(),
+		slog.Error("UserRegistration - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: utils.ErrorInvalidRequestBody,
+			Error:   errors.Error(),
 		})
 	}
 
-	err = ox.UserSvc.UserRegistration(ctx, user)
+	resp, err := ox.UserSvc.UserRegistration(ctx, user)
 	if err != nil {
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "bad request",
-			English:    "bad request",
-			Error:      err.Error(),
-		})
+		slog.Error("UserRegistration - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, resp)
 	}
 
-	return ec.JSON(http.StatusOK, Resp{Code: http.StatusCreated, Message: "successfully registered"})
+	return ec.JSON(http.StatusOK, resp)
 }
 
 func (ox *AuthCtrlImpl) UserLogin(ec echo.Context) error {

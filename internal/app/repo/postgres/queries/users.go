@@ -2,8 +2,9 @@ package queries
 
 const (
 	QueryCreateUser = `
-		INSERT INTO users (email, fullname, phone_number, username, password) VALUES ($1, $2, $3, $4, $5) RETURNING user_id
+		INSERT INTO users (email, fullname, phone_number, username, password, is_active) VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING user_id
 	`
+
 	QueryFindUserByEmailOrUsename = `
 		SELECT user_id, uuid, fullname, phone_number, username, email, password FROM users WHERE email = $1 OR username = $1
 	`
