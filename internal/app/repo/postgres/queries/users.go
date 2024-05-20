@@ -14,7 +14,7 @@ const (
 	`
 
 	QueryGetUserByID = `
-		SELECT user_id, uuid, fullname, phone_number, username, email, password FROM users WHERE user_id = $1 AND deleted_at IS NULL
+		SELECT user_id, uuid, fullname, phone_number, username, email, password, is_active FROM users WHERE user_id = $1 AND deleted_at IS NULL
 	`
 
 	QueryGetUserByUUID = `

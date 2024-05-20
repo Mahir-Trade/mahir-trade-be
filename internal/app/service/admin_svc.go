@@ -28,6 +28,7 @@ type (
 		AdminLogin(ctx context.Context, req AdminLoginRequest) (resp models.DefaultResponse, err error)
 		AdminRegistration(ctx context.Context, req models.Admin) (resp models.DefaultResponse, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, id int64) (resp models.DefaultResponse, err error)
+		GetDetailAdminInfo(ctx context.Context, username string) (resp models.DefaultResponse, err error)
 	}
 
 	AdminSvcImpl struct {
@@ -179,7 +180,7 @@ func (a *AdminSvcImpl) UpdateTypeUser(ctx context.Context, isActive bool, id int
 		return
 	}
 
-	if user.IsActivate == isActive {
+	if user.IsActive == isActive {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "User already in this state"
 		return
@@ -195,6 +196,30 @@ func (a *AdminSvcImpl) UpdateTypeUser(ctx context.Context, isActive bool, id int
 	}
 
 	resp.Data = state
+
+	return
+}
+
+func (a *AdminSvcImpl) GetDetailAdminInfo(ctx context.Context, username string) (resp models.DefaultResponse, err error) {
+	{
+		resp = models.DefaultResponse{
+			Code:    http.StatusOK,
+			Message: "Success",
+			Data:    struct{}{},
+		}
+	}
+
+	admin, err := a.AdminRepo.FindByUsername(ctx, username)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetDetailAdminInfo] error while GetAdminByID err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	admin.Password = ""
+	resp.Data = admin
 
 	return
 }

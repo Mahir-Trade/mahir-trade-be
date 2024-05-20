@@ -33,6 +33,9 @@ func setRoute(
 		users.POST("/login", authCtrl.UserLogin)
 		users.GET("/login/google", authCtrl.LoginWithGoogle)
 		users.GET("/login/google/callback", authCtrl.CallbackGoogle)
+
+		// Dashboard
+		users.GET("/detail", authCtrl.GetDetailUser, middleware.AuthAdminOrUser("user"))
 	}
 
 	groups := base.Group("/groups", middleware.AuthAdminOrUser("admin", "user"))
@@ -89,6 +92,9 @@ func setRoute(
 	{
 		admins.POST("/register", adminCtrl.AdminRegistration)
 		admins.POST("/login", adminCtrl.AdminLogin)
+
+		admins.GET("/detail", adminCtrl.GetDetailAdminInfo, middleware.AuthAdminOrUser("admin"))
+		admins.GET("/user-detail/:user_id", adminCtrl.GetDetailUserForBO, middleware.AuthAdminOrUser("admin"))
 	}
 
 	report := base.Group("/reports", middleware.AuthAdminOrUser("admin", "user"))

@@ -129,7 +129,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 					userCtx.Username = adminData.Username
 				}
 			} else if len(role) == 1 && role[0] == "user" {
-				userData, errGetUser := m.UserRepo.FindUserByEmailOrUsername(ctx, userCtx.Username)
+				userData, errGetUser := m.UserRepo.FindUserByEmailOrUsername(ctx, userCtx.Email)
 				if errGetUser != nil {
 					errResponse.Message = "Unauthorized"
 					errResponse.Error = "Invalid role"

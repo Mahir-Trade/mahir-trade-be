@@ -30,6 +30,7 @@ type (
 		InviteDiscordUserToGuild(ec echo.Context) error
 		ConnectDiscordAccountAndAssignRole(ec echo.Context) error
 		ConnectDiscordAccountAndRemoveRole(ec echo.Context) error
+		GetDetailUser(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -287,4 +288,22 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 	}
 
 	return ec.JSON(res.Code, res)
+}
+
+func (ox *AuthCtrlImpl) GetDetailUser(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetDetailUser - something went wrong", r)
+		}
+	}()
+
+	res, err := ox.UserSvc.GetDetailUser(ctx)
+	if err != nil {
+		slog.Error("GetDetailUser - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
 }

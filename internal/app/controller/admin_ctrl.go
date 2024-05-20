@@ -5,6 +5,7 @@ import (
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
+	"mahir-trade-be/pkg/middleware"
 	"net/http"
 	"strconv"
 
@@ -18,12 +19,15 @@ type (
 		AdminLogin(ec echo.Context) error
 		AdminRegistration(ec echo.Context) error
 		UpdateTypeUser(ec echo.Context) error
+		GetDetailUserForBO(ec echo.Context) error
+		GetDetailAdminInfo(ec echo.Context) error
 	}
 
 	AdminCtrlImpl struct {
 		dig.In
 
 		AdminSvc service.AdminSvc
+		UserSvc  service.UserSvc
 	}
 )
 
@@ -171,4 +175,60 @@ func (ox *AdminCtrlImpl) UpdateTypeUser(ec echo.Context) error {
 	}
 
 	return ec.JSON(resp.Code, resp)
+}
+
+func (ox *AdminCtrlImpl) GetDetailUserForBO(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetDetailUserForBO - something went wrong", r)
+		}
+	}()
+
+	userID := ec.Param("user_id")
+	userIDInt, err := strconv.ParseInt(userID, 10, 64)
+	if err != nil {
+		slog.Error("GetDetailUserForBO - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Error:   err.Error(),
+		})
+	}
+
+	res, err := ox.UserSvc.GetDetailUserForBO(ctx, userIDInt)
+	if err != nil {
+		slog.Error("GetDetailUserForBO - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AdminCtrlImpl) GetDetailAdminInfo(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetDetailAdminInfo - something went wrong", r)
+		}
+	}()
+
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		slog.Error("GetDetailAdminInfo - something went wrong")
+		return ec.JSON(http.StatusInternalServerError, models.DefaultResponse{
+			Code:    http.StatusInternalServerError,
+			Message: "Internal Server Error",
+		})
+	}
+
+	res, err := ox.AdminSvc.GetDetailAdminInfo(ctx, userData.Username)
+	if err != nil {
+		slog.Error("GetDetailAdminInfo - something went wrong", err)
+		return ec.JSON(http.StatusInternalServerError, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
 }

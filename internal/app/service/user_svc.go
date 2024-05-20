@@ -45,6 +45,8 @@ type (
 		ConnectDiscordAccountAndRemoveRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		LoginWithGoogle(ctx context.Context) (url string, err error)
 		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error)
+		GetDetailUser(ctx context.Context) (resp models.DefaultResponse, err error)
+		GetDetailUserForBO(ctx context.Context, userID int64) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -575,6 +577,60 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 			Expire: exp,
 		},
 	}
+
+	return
+}
+
+func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+	}
+
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New(utils.ErrorInternalServer).Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUser] err : %v", errors.New(utils.ErrorInternalServer)))
+
+		return resp, errors.New(utils.ErrorInternalServer)
+	}
+
+	user, err := u.UserRepo.GetUserByID(ctx, int64(userData.UserID))
+	if err != nil {
+		resp.Code = http.StatusNotFound
+		resp.Message = "user not found"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUser][GetUserByID] err : %v", err))
+
+		return resp, err
+	}
+
+	user.Password = ""
+	resp.Data = user
+
+	return
+}
+
+func (u *UserSvcImpl) GetDetailUserForBO(ctx context.Context, userID int64) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+	}
+
+	user, err := u.UserRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		resp.Code = http.StatusNotFound
+		resp.Message = "user not found"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUserForBO][GetUserByID] err : %v", err))
+
+		return resp, err
+	}
+
+	user.Password = ""
+	resp.Data = user
 
 	return
 }

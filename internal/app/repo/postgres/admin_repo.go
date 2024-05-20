@@ -32,6 +32,14 @@ func NewAdminRepo(impl AdminRepoImpl) AdminRepo {
 
 func (a *AdminRepoImpl) FindByUsername(ctx context.Context, username string) (admin models.Admin, err error) {
 	err = a.QueryRowContext(ctx, queries.QueryFindByEmail, username).Scan(&admin.AdminID, &admin.UUID, &admin.Email, &admin.Username, &admin.Password)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return admin, fmt.Errorf("username not found")
+		}
+
+		slog.ErrorContext(ctx, fmt.Sprintf("error while FindByUsername err: %v", err.Error()))
+
+	}
 	return admin, err
 }
 

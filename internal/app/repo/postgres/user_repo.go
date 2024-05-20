@@ -60,9 +60,14 @@ func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string
 
 func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserByID, id)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password, &user.IsActive)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByID err: %v", err.Error()))
+
+		if err == sql.ErrNoRows {
+			return user, fmt.Errorf("user not found")
+		}
+
 		return user, err
 	}
 
