@@ -36,7 +36,7 @@ type (
 	}
 
 	UserSvc interface {
-		UserRegistration(ctx context.Context, req models.User) (err error)
+		UserRegistration(ctx context.Context, req models.User) (resp models.DefaultResponse, err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
 		AssignRoleDiscordToUser(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		RemoveRoleDiscordToUser(ctx context.Context) (resp models.DefaultResponse, err error)
@@ -61,7 +61,11 @@ func NewUserSvc(impl UserSvcImpl) UserSvc {
 	return &impl
 }
 
-func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.User) (err error) {
+func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.User) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusCreated
+		resp.Message = "success"
+	}
 
 	{
 		req.Email = strings.ToLower(strings.TrimSpace(req.Email))
@@ -70,17 +74,47 @@ func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.User) (er
 		req.Password, err = utils.HashPassword(req.Password)
 		if err != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][HashPassword] err : %v", err))
-			return err
+			resp.Code = http.StatusInternalServerError
+			resp.Message = utils.ErrorInternalServer
+			resp.Error = err.Error()
+
+			return resp, err
 		}
 	}
 
-	_, err = u.UserRepo.CreateUser(ctx, req)
+	userId, err := u.UserRepo.CreateUser(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration] err : %v", err.Error()))
-		return err
+		resp.Code = http.StatusBadRequest
+		resp.Message = utils.ErrorBadRequest
+		resp.Error = err.Error()
+
+		return resp, err
 	}
 
-	return nil
+	token, exp, err := utils.Sign(JWTData{
+		Email:   req.Email,
+		UserID:  int64(userId),
+		Usename: req.Username,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][Sign] err : %v", err))
+		resp.Code = http.StatusInternalServerError
+		resp.Message = utils.ErrorInternalServer
+		resp.Error = err.Error()
+
+		return
+	}
+
+	resp.Data = struct {
+		Token  string `json:"token"`
+		Expire int64  `json:"expire"`
+	}{
+		Token:  token,
+		Expire: exp,
+	}
+
+	return resp, nil
 }
 
 func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error) {

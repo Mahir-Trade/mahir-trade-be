@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres/queries"
+	"strings"
 
 	"go.uber.org/dig"
 )
@@ -35,6 +36,10 @@ func NewUserRepo(impl UserRepoImpl) UserRepo {
 func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int, err error) {
 	_, err = u.QueryContext(ctx, queries.QueryCreateUser, req.Email, req.Fullname, req.PhoneNumber, req.Username, req.Password)
 	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return id, fmt.Errorf("email or username already exist")
+		}
+
 		slog.ErrorContext(ctx, fmt.Sprintf("error while CreateUser err: %v", err.Error()))
 		return id, err
 	}
