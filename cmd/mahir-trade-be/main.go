@@ -84,6 +84,12 @@ func LoadApplicationConfig() error {
 		return fmt.Errorf("LoadGoogleCfg: %s", err.Error())
 	}
 
+	err = di.Provide(infra.NewScheduler)
+	if err != nil {
+		fmt.Println("NewScheduler: ", err.Error())
+		return fmt.Errorf("NewScheduler: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -104,6 +110,7 @@ func LoadApplicationPackage() error {
 		fmt.Println("NewOauth: ", err.Error())
 		return fmt.Errorf("NewOauth: %s", err.Error())
 	}
+
 	return nil
 }
 
@@ -272,6 +279,11 @@ func LoadApplicationController() error {
 	err = di.Provide(controller.NewPaymentCtrl)
 	if err != nil {
 		return fmt.Errorf("NewPaymentCtrl: %s", err.Error())
+	}
+
+	err = di.Provide(controller.NewSchedulerCtrl)
+	if err != nil {
+		return fmt.Errorf("NewSchedulerCtrl: %s", err.Error())
 	}
 
 	return nil
