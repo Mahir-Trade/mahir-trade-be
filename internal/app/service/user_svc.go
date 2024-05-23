@@ -47,6 +47,7 @@ type (
 		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error)
 		GetDetailUser(ctx context.Context) (resp models.DefaultResponse, err error)
 		GetDetailUserForBO(ctx context.Context, userID int64) (resp models.DefaultResponse, err error)
+		UpdateMembership(ctx context.Context) (err error)
 	}
 
 	UserSvcImpl struct {
@@ -56,6 +57,7 @@ type (
 		DiscordRepo        discord.DiscordRepo
 		DiscordAccountrepo postgres.DiscordAccountRepo
 		GoogleRepo         google.GoogleRepo
+		UserMembershipRepo postgres.UserMembershipRepo
 	}
 )
 
@@ -632,5 +634,16 @@ func (u *UserSvcImpl) GetDetailUserForBO(ctx context.Context, userID int64) (res
 	user.Password = ""
 	resp.Data = user
 
+	return
+}
+
+func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
+	slog.InfoContext(ctx, "[service][UpdateMembership] [cron] start update membership")
+	err = u.UserMembershipRepo.UpdateBulkUserMembership(ctx)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][UpdateBulkUserMembership] err : %v", err))
+		return
+	}
+	slog.InfoContext(ctx, "[service][UpdateMembership] [cron] finish update membership")
 	return
 }

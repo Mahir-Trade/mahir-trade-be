@@ -20,6 +20,7 @@ func setRoute(
 	subModuleCtrl controller.SubModuleCtrl,
 	reportCtrl controller.ReportCtrl,
 	paymentCtrl controller.PaymentCtrl,
+	cronCtrl controller.SchedulerCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -116,5 +117,6 @@ func setRoute(
 	// Public route
 	{
 		base.POST("/payment-link-callback", paymentCtrl.PaymentLinkCallback)
+		base.GET("/cron", paymentCtrl.PaymentLinkCallback)
 	}
 }

@@ -20,4 +20,20 @@ const (
 		WHERE user_id = $1
 			AND deleted_at IS NULL
 	`
+	QueryBulkUpdateUserMembershipExpired = `
+		UPDATE user_memberships
+		SET is_membership_active = CASE
+			WHEN expired_at < NOW() THEN false
+			ELSE is_membership_active
+		END,
+		updated_by = CASE
+			WHEN expired_at < NOW() THEN 'CRONJOB'
+			ELSE updated_by
+		END
+	`
+
+	QueryGetUserMemberships = `
+		SELECT id, expired_at FROM user_memberships
+		WHERE deleted_at IS NULL
+	`
 )
