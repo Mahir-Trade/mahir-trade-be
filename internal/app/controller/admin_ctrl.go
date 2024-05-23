@@ -21,6 +21,7 @@ type (
 		UpdateTypeUser(ec echo.Context) error
 		GetDetailUserForBO(ec echo.Context) error
 		GetDetailAdminInfo(ec echo.Context) error
+		GetAllUsers(ec echo.Context) error
 	}
 
 	AdminCtrlImpl struct {
@@ -228,6 +229,41 @@ func (ox *AdminCtrlImpl) GetDetailAdminInfo(ec echo.Context) error {
 	if err != nil {
 		slog.Error("GetDetailAdminInfo - something went wrong", err)
 		return ec.JSON(http.StatusInternalServerError, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AdminCtrlImpl) GetAllUsers(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetAllUsers - something went wrong", r)
+		}
+	}()
+
+	limit, err := strconv.ParseInt(ec.QueryParam("limit"), 10, 64)
+	if err != nil {
+		limit = 10
+	}
+
+	page, err := strconv.ParseInt(ec.QueryParam("page"), 10, 64)
+	if err != nil {
+		page = 1
+	}
+
+	search := ec.QueryParam("search")
+	req := models.PaginationRequest{
+		Limit:  limit,
+		Page:   page,
+		Search: search,
+	}
+
+	res, err := ox.AdminSvc.GetAllUsers(ctx, req)
+	if err != nil {
+		slog.Error("GetAllUsers - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
 	}
 
 	return ec.JSON(http.StatusOK, res)

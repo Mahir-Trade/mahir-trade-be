@@ -25,5 +25,25 @@ const (
 		UPDATE users
 		SET is_active = $1, updated_by = $2, updated_at = NOW()
 		WHERE user_id = $3
-		`
+	`
+
+	QueryGetUsers = `
+		SELECT
+			COUNT(*) OVER() as total_count,
+			u.user_id,
+			u.uuid,
+			u.phone_number,
+			u.email,
+			u.fullname,
+			u.username,
+			u.is_active,
+			u.created_at,
+			u.created_by,
+			u.updated_at,
+			u.updated_by
+		FROM
+			users u
+		WHERE
+			u.deleted_at IS NULL
+	`
 )
