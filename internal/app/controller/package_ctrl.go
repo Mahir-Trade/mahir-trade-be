@@ -6,6 +6,7 @@ import (
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
+	"mahir-trade-be/pkg/middleware"
 	"net/http"
 	"strconv"
 
@@ -43,6 +44,15 @@ func (ox *PackageCtrlImpl) CreatePackage(ec echo.Context) error {
 		}
 	}()
 
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		slog.Error("CreateGroup - something went wrong", errors.New("user data not found"))
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "user data not found",
+		})
+	}
+
 	var pkg models.Package
 	if err := ec.Bind(&pkg); err != nil {
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
@@ -62,6 +72,8 @@ func (ox *PackageCtrlImpl) CreatePackage(ec echo.Context) error {
 			Error:   errors.Error(),
 		})
 	}
+
+	pkg.CreatedBy = userData.Email
 
 	resp, err := ox.PackageSvc.CreatePackage(ctx, pkg)
 	if err != nil {
@@ -90,7 +102,7 @@ func (ox *PackageCtrlImpl) GetPackages(ec echo.Context) error {
 		page = 1
 	}
 
-	req := models.GetPackagesRequest{
+	req := models.PaginationRequest{
 		Limit: limit,
 		Page:  page,
 	}
@@ -160,6 +172,15 @@ func (ox *PackageCtrlImpl) UpdatePackage(ec echo.Context) error {
 		}
 	}()
 
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		slog.Error("UpdatePackage - something went wrong", errors.New("user data not found"))
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "user data not found",
+		})
+	}
+
 	id := ec.Param("id")
 	if id == "" {
 		errMsg = "package id is required"
@@ -211,6 +232,8 @@ func (ox *PackageCtrlImpl) UpdatePackage(ec echo.Context) error {
 		})
 	}
 
+	pkg.UpdatedBy = userData.Email
+
 	resp, err := ox.PackageSvc.UpdatePackage(ctx, pkg)
 	if err != nil {
 		slog.Error("UpdatePackage - something went wrong", err)
@@ -231,6 +254,15 @@ func (ox *PackageCtrlImpl) DeletePackage(ec echo.Context) error {
 			slog.Error("DeletePackage - something went wrong", r)
 		}
 	}()
+
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		slog.Error("DeletePackage - something went wrong", errors.New("user data not found"))
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "user data not found",
+		})
+	}
 
 	id := ec.Param("id")
 	if id == "" {
@@ -263,7 +295,7 @@ func (ox *PackageCtrlImpl) DeletePackage(ec echo.Context) error {
 		})
 	}
 
-	resp, err := ox.PackageSvc.DeletePackage(ctx, packageID)
+	resp, err := ox.PackageSvc.DeletePackage(ctx, packageID, userData.Email)
 	if err != nil {
 		slog.Error("DeletePackage - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, resp)

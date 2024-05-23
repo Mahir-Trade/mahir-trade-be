@@ -8,6 +8,7 @@ import (
 	"mahir-trade-be/internal/app/repo/postgres"
 	"math"
 	"net/http"
+	"time"
 
 	"go.uber.org/dig"
 )
@@ -15,10 +16,10 @@ import (
 type (
 	PackageSvc interface {
 		CreatePackage(ctx context.Context, req models.Package) (resp models.DefaultResponse, err error)
-		GetPackages(ctx context.Context, req models.GetPackagesRequest) (resp models.DefaultPaginationResponseData, err error)
+		GetPackages(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetPackageByID(ctx context.Context, packageId int64) (resp models.DefaultResponse, err error)
 		UpdatePackage(ctx context.Context, req models.Package) (resp models.DefaultResponse, err error)
-		DeletePackage(ctx context.Context, packageId int64) (resp models.DefaultResponse, err error)
+		DeletePackage(ctx context.Context, packageId int64, deletedBy string) (resp models.DefaultResponse, err error)
 	}
 
 	PackageSvcImpl struct {
@@ -38,6 +39,20 @@ func (p *PackageSvcImpl) CreatePackage(ctx context.Context, req models.Package) 
 		resp.Message = "Success"
 	}
 
+	discountExpired := getDiscountExpired(time.Now())
+	if req.DiscountedPrice >= 0 {
+		err := p.PackageRepo.UpdatePackageDiscountExpired(ctx, discountExpired)
+		if err != nil {
+			resp.Code = http.StatusBadRequest
+			resp.Message = "bad request"
+			resp.Error = err.Error()
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][CreatePackage] while UpdatePackageDiscountExpired err : %v", err.Error()))
+
+			return resp, err
+		}
+	}
+
+	req.DiscountExpired = discountExpired.Format(time.RFC3339)
 	packageId, err := p.PackageRepo.CreatePackage(ctx, req)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
@@ -57,7 +72,7 @@ func (p *PackageSvcImpl) CreatePackage(ctx context.Context, req models.Package) 
 	return
 }
 
-func (p *PackageSvcImpl) GetPackages(ctx context.Context, req models.GetPackagesRequest) (resp models.DefaultPaginationResponseData, err error) {
+func (p *PackageSvcImpl) GetPackages(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error) {
 	var dataResp models.DefaultResponse
 	{
 		dataResp.Code = http.StatusOK
@@ -139,6 +154,19 @@ func (p *PackageSvcImpl) UpdatePackage(ctx context.Context, req models.Package) 
 		return resp, fmt.Errorf("package with id %d not found", req.ID)
 	}
 
+	if req.DiscountedPrice != 0 && req.DiscountedPrice != packageData.DiscountedPrice {
+		newDiscountExpired := getDiscountExpired(time.Now())
+		err = p.PackageRepo.UpdatePackageDiscountExpired(ctx, newDiscountExpired)
+		if err != nil {
+			resp.Code = http.StatusBadRequest
+			resp.Message = "bad request"
+			resp.Error = err.Error()
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdatePackage] while UpdatePackageDiscountExpired err : %v", err))
+
+			return resp, err
+		}
+	}
+
 	err = p.PackageRepo.UpdatePackage(ctx, req)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
@@ -152,7 +180,7 @@ func (p *PackageSvcImpl) UpdatePackage(ctx context.Context, req models.Package) 
 	return
 }
 
-func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64) (resp models.DefaultResponse, err error) {
+func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64, deletedBy string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
@@ -177,7 +205,7 @@ func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64) (re
 		return resp, fmt.Errorf("package with id %d not found", packageId)
 	}
 
-	err = p.PackageRepo.SoftDeletePackage(ctx, packageId, "SYSTEM")
+	err = p.PackageRepo.SoftDeletePackage(ctx, packageId, deletedBy)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "bad request"
@@ -188,4 +216,9 @@ func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64) (re
 	}
 
 	return
+}
+
+func getDiscountExpired(t time.Time) time.Time {
+	firstDayNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+	return firstDayNextMonth.Add(-time.Second)
 }
