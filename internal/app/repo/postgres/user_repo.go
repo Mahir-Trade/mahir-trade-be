@@ -20,6 +20,7 @@ type (
 		GetUserByID(ctx context.Context, id int64) (user models.User, err error)
 		GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error)
+		GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.User, totalCount int64, err error)
 	}
 
 	UserRepoImpl struct {
@@ -103,4 +104,52 @@ func (u *UserRepoImpl) FindUserByEmailAndUsername(ctx context.Context, email, us
 	}
 
 	return user, nil
+}
+
+func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.User, totalCount int64, err error) {
+	query := queries.QueryGetUsers
+	queryParams := []interface{}{}
+
+	if req.Search != "" {
+		// currently only can find by email
+		query += " AND u.email ILIKE '%' || $1 || '%'"
+		queryParams = append(queryParams, strings.ToLower(req.Search))
+	}
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
+	queryParams = append(queryParams, req.Limit, int((req.Page - 1) * req.Limit))
+
+	rows, err := u.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[repo][GetAllUsers] while QueryContext, err: %v", err.Error()))
+		return
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var user models.User
+		err = rows.Scan(
+			&totalCount,
+			&user.UserID,
+			&user.UUID,
+			&user.PhoneNumber,
+			&user.Email,
+			&user.Fullname,
+			&user.Username,
+			&user.IsActive,
+			&user.CreatedAt,
+			&user.CreatedBy,
+			&user.UpdatedAt,
+			&user.UpdatedBy,
+		)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[repo][GetAlltUser] while Scan, err: %v", err.Error()))
+			return
+		}
+
+		users = append(users, user)
+	}
+
+	return
 }

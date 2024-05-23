@@ -96,6 +96,7 @@ func setRoute(
 
 		admins.GET("/detail", adminCtrl.GetDetailAdminInfo, middleware.AuthAdminOrUser("admin"))
 		admins.GET("/user-detail/:user_id", adminCtrl.GetDetailUserForBO, middleware.AuthAdminOrUser("admin"))
+		admins.GET("/users", adminCtrl.GetAllUsers, middleware.AuthAdminOrUser("admin"))
 	}
 
 	report := base.Group("/reports", middleware.AuthAdminOrUser("admin", "user"))

@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/middleware"
+	"math"
 	"net/http"
 	"strings"
 
@@ -29,6 +31,7 @@ type (
 		AdminRegistration(ctx context.Context, req models.Admin) (resp models.DefaultResponse, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, id int64) (resp models.DefaultResponse, err error)
 		GetDetailAdminInfo(ctx context.Context, username string) (resp models.DefaultResponse, err error)
+		GetAllUsers(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 	}
 
 	AdminSvcImpl struct {
@@ -220,6 +223,38 @@ func (a *AdminSvcImpl) GetDetailAdminInfo(ctx context.Context, username string) 
 
 	admin.Password = ""
 	resp.Data = admin
+
+	return
+}
+
+func (a *AdminSvcImpl) GetAllUsers(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error) {
+	var dataResp models.DefaultResponse
+	{
+		dataResp.Code = http.StatusOK
+		dataResp.Message = "success"
+	}
+
+	users, totalCount, err := a.UserRepo.GetAllUser(ctx, req)
+	if err != nil {
+		dataResp.Code = http.StatusBadRequest
+		dataResp.Message = utils.ErrorBadRequest
+		dataResp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetAllUsers] while GetAllUser err: %v", err.Error()))
+
+		return resp, err
+	}
+
+	{
+		dataResp.Data = users
+		resp.Page = uint(req.Page)
+		resp.Limit = uint(req.Limit)
+
+		resp.TotalPages = uint(math.Ceil(float64(totalCount) / float64(req.Limit)))
+		resp.TotalItems = uint(totalCount)
+		resp.HasNext = req.Page < int64(resp.TotalPages)
+		resp.HasPrevious = req.Page > 1
+		resp.Results = dataResp
+	}
 
 	return
 }
