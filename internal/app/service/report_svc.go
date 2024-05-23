@@ -15,10 +15,10 @@ import (
 type (
 	ReportSvc interface {
 		CreateReport(ctx context.Context, req models.Report) (resp models.DefaultResponse, err error)
-		GetReports(ctx context.Context, req models.GetPackagesRequest) (resp models.DefaultPaginationResponseData, err error)
+		GetReports(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetReportByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
 		UpdateReport(ctx context.Context, req models.Report) (resp models.DefaultResponse, err error)
-		DeleteReport(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
+		DeleteReport(ctx context.Context, id int64, deletedBy string) (resp models.DefaultResponse, err error)
 	}
 
 	ReportSvcImpl struct {
@@ -57,7 +57,7 @@ func (r *ReportSvcImpl) CreateReport(ctx context.Context, req models.Report) (re
 	return
 }
 
-func (r *ReportSvcImpl) GetReports(ctx context.Context, req models.GetPackagesRequest) (resp models.DefaultPaginationResponseData, err error) {
+func (r *ReportSvcImpl) GetReports(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error) {
 	var dataResp models.DefaultResponse
 	{
 		dataResp.Code = http.StatusOK
@@ -151,7 +151,7 @@ func (r *ReportSvcImpl) UpdateReport(ctx context.Context, req models.Report) (re
 	return
 }
 
-func (r *ReportSvcImpl) DeleteReport(ctx context.Context, id int64) (resp models.DefaultResponse, err error) {
+func (r *ReportSvcImpl) DeleteReport(ctx context.Context, id int64, deletedBy string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
@@ -176,7 +176,7 @@ func (r *ReportSvcImpl) DeleteReport(ctx context.Context, id int64) (resp models
 		return resp, err
 	}
 
-	err = r.ReportRepo.SoftDeleteReport(ctx, id, "SYSTEM")
+	err = r.ReportRepo.SoftDeleteReport(ctx, id, deletedBy)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "bad request"

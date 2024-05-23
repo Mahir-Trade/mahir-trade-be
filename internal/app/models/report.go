@@ -3,6 +3,7 @@ package models
 type (
 	Report struct {
 		ID                 int64  `json:"id"`
+		ReportName         string `json:"report_name" validate:"required"`
 		ReportThumbnailURL string `json:"report_thumbnail_url" validate:"required"`
 		ReportFileURL      string `json:"report_file_url" validate:"required"`
 		CreatedBy          string `json:"created_by"`

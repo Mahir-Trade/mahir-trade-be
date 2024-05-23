@@ -73,20 +73,13 @@ func (p *PackageRepoImpl) GetPackages(ctx context.Context, req models.Pagination
 
 	for rows.Next() {
 		var pack models.Package
-		err = rows.Scan(&pack.ID, &pack.Price, &pack.DurationInMonth, &pack.Description, &pack.DiscountedPrice, &pack.DiscountExpired, &pack.CreatedBy, &pack.UpdatedBy, &pack.CreatedAt, &pack.UpdatedAt)
+		err = rows.Scan(&totalCount, &pack.ID, &pack.Price, &pack.DurationInMonth, &pack.Description, &pack.DiscountedPrice, &pack.DiscountExpired, &pack.CreatedBy, &pack.UpdatedBy, &pack.CreatedAt, &pack.UpdatedAt)
 		if err != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("error while GetPackages err: %v", err.Error()))
 			return packages, totalCount, err
 		}
 
 		packages = append(packages, pack)
-	}
-
-	totalCountRow := p.QueryRowContext(ctx, queries.QueryGetTotalPackages)
-	err = totalCountRow.Scan(&totalCount)
-	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("error while GetTotalPackages err: %v", err.Error()))
-		return packages, totalCount, err
 	}
 
 	return packages, totalCount, nil

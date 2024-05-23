@@ -8,16 +8,10 @@ const (
 	`
 
 	QueryGetPackages = `
-		SELECT id, price, duration_in_month, description, discounted_price, discount_expired, created_by, updated_by, created_at, updated_at
+		SELECT COUNT(*) OVER() as total_count, id, price, duration_in_month, description, discounted_price, discount_expired, created_by, updated_by, created_at, updated_at
 		FROM packages
 		WHERE deleted_at IS NULL
 		LIMIT $1 OFFSET $2
-	`
-
-	QueryGetTotalPackages = `
-		SELECT COUNT(*) as total_count
-		FROM packages
-		WHERE deleted_at IS NULL
 	`
 
 	QueryGetPackageByID = `

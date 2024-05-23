@@ -5,6 +5,7 @@ import (
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
+	"mahir-trade-be/pkg/middleware"
 	"net/http"
 	"strconv"
 
@@ -42,6 +43,15 @@ func (r *ReportCtrlImpl) CreateReport(ec echo.Context) error {
 		}
 	}()
 
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		return ec.JSON(http.StatusUnauthorized, models.DefaultResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "Unauthorized",
+			Error:   "Unauthorized",
+		})
+	}
+
 	var report models.Report
 	if err := ec.Bind(&report); err != nil {
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
@@ -62,6 +72,7 @@ func (r *ReportCtrlImpl) CreateReport(ec echo.Context) error {
 		})
 	}
 
+	report.CreatedBy = userData.Email
 	resp, err := r.ReportSvc.CreateReport(ctx, report)
 	if err != nil {
 		return ec.JSON(resp.Code, resp)
@@ -89,9 +100,12 @@ func (r *ReportCtrlImpl) GetReports(ec echo.Context) error {
 		page = 1
 	}
 
-	req := models.GetPackagesRequest{
-		Limit: limit,
-		Page:  page,
+	search := ec.QueryParam("search")
+
+	req := models.PaginationRequest{
+		Limit:  limit,
+		Page:   page,
+		Search: search,
 	}
 
 	resp, err := r.ReportSvc.GetReports(ctx, req)
@@ -138,6 +152,15 @@ func (r *ReportCtrlImpl) UpdateReport(ec echo.Context) error {
 		}
 	}()
 
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		return ec.JSON(http.StatusUnauthorized, models.DefaultResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "Unauthorized",
+			Error:   "Unauthorized",
+		})
+	}
+
 	id, err := strconv.ParseInt(ec.Param("id"), 10, 64)
 	if err != nil {
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
@@ -168,6 +191,7 @@ func (r *ReportCtrlImpl) UpdateReport(ec echo.Context) error {
 		})
 	}
 
+	report.UpdatedBy = userData.Email
 	resp, err := r.ReportSvc.UpdateReport(ctx, report)
 	if err != nil {
 		return ec.JSON(resp.Code, resp)
@@ -185,6 +209,15 @@ func (r *ReportCtrlImpl) DeleteReport(ec echo.Context) error {
 		}
 	}()
 
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		return ec.JSON(http.StatusUnauthorized, models.DefaultResponse{
+			Code:    http.StatusUnauthorized,
+			Message: "Unauthorized",
+			Error:   "Unauthorized",
+		})
+	}
+
 	id, err := strconv.ParseInt(ec.Param("id"), 10, 64)
 	if err != nil {
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
@@ -194,7 +227,7 @@ func (r *ReportCtrlImpl) DeleteReport(ec echo.Context) error {
 		})
 	}
 
-	resp, err := r.ReportSvc.DeleteReport(ctx, id)
+	resp, err := r.ReportSvc.DeleteReport(ctx, id, userData.Email)
 	if err != nil {
 		return ec.JSON(resp.Code, resp)
 	}

@@ -2,26 +2,19 @@ package queries
 
 const (
 	QueryCreateReport = `
-		INSERT INTO reports (report_thumbnail_url, report_file_url, created_by, updated_by)
-		VALUES ($1, $2, 'SYSTEM', 'SYSTEM')
+		INSERT INTO reports (report_name, report_thumbnail_url, report_file_url, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $4)
 		RETURNING id
 	`
 
 	QueryGetReports = `
-		SELECT id, report_thumbnail_url, report_file_url, created_by, updated_by, created_at, updated_at
-		FROM reports
-		WHERE deleted_at IS NULL
-		LIMIT $1 OFFSET $2
-	`
-
-	QueryGetTotalReports = `
-		SELECT COUNT(*) as total_count
+		SELECT COUNT(*) OVER() as total_count, id, report_name, report_thumbnail_url, report_file_url, created_by, updated_by, created_at, updated_at
 		FROM reports
 		WHERE deleted_at IS NULL
 	`
 
 	QueryGetReportByID = `
-		SELECT id, report_thumbnail_url, report_file_url, created_by, updated_by, created_at, updated_at
+		SELECT id, report_name, report_thumbnail_url, report_file_url, created_by, updated_by, created_at, updated_at
 		FROM reports
 		WHERE id = $1
 		AND deleted_at IS NULL
@@ -29,8 +22,8 @@ const (
 
 	QueryUpdateReport = `
 		UPDATE reports
-		SET report_thumbnail_url = $1, report_file_url = $2, updated_at = NOW(), updated_by = 'SYSTEM'
-		WHERE id = $3
+		SET report_name = $1, report_thumbnail_url = $2, report_file_url = $3, updated_at = NOW(), updated_by = $4
+		WHERE id = $5
 	`
 
 	QuertSoftDeleteReport = `
