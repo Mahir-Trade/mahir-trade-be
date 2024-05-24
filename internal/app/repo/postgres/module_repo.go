@@ -42,15 +42,16 @@ func (m *ModuleRepoImpl) CreateModule(ctx context.Context, req models.Module) (i
 		}
 	} else {
 		if req.Tag.Valid {
-			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithoutGroupIDAndTag, req.ModuleName, req.ThumbnailUrl, req.Tag, req.CreatedBy)
+			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithoutGroupID, req.ModuleName, req.ThumbnailUrl, req.Tag, req.CreatedBy)
 		} else {
-			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithoutGroupID, req.ModuleName, req.ThumbnailUrl, req.CreatedBy)
+			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithoutGroupIDAndTag, req.ModuleName, req.ThumbnailUrl, req.CreatedBy)
 		}
 	}
 
 	if err != nil {
 		slog.ErrorContext(ctx, "[moduleRepoImpl][CreateModule] error while QueryContext", "%v", err.Error())
-		return id, err
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return
 	}
 
 	defer rows.Close()
