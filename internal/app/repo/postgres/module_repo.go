@@ -32,38 +32,30 @@ func NewModuleRepo(impl ModuleRepoImpl) ModuleRepo {
 	return &impl
 }
 func (m *ModuleRepoImpl) CreateModule(ctx context.Context, req models.Module) (id int, err error) {
-	var rows *sql.Rows
+	var row *sql.Row
 
 	if req.GroupID.Valid {
 		if req.Tag.Valid {
-			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithGroupIDAndTag, req.GroupID, req.ModuleName, req.ThumbnailUrl, req.Tag, req.CreatedBy)
+			row = m.QueryRowContext(ctx, queries.QueryCreateModuleWithGroupIDAndTag, req.GroupID, req.ModuleName, req.ThumbnailUrl, req.Tag, req.CreatedBy)
 		} else {
-			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithGroupID, req.GroupID, req.ModuleName, req.ThumbnailUrl, req.CreatedBy)
+			row = m.QueryRowContext(ctx, queries.QueryCreateModuleWithGroupID, req.GroupID, req.ModuleName, req.ThumbnailUrl, req.CreatedBy)
 		}
 	} else {
 		if req.Tag.Valid {
-			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithoutGroupIDAndTag, req.ModuleName, req.ThumbnailUrl, req.Tag, req.CreatedBy)
+			row = m.QueryRowContext(ctx, queries.QueryCreateModuleWithoutGroupID, req.ModuleName, req.ThumbnailUrl, req.Tag, req.CreatedBy)
 		} else {
-			rows, err = m.QueryContext(ctx, queries.QueryCreateModuleWithoutGroupID, req.ModuleName, req.ThumbnailUrl, req.CreatedBy)
+			row = m.QueryRowContext(ctx, queries.QueryCreateModuleWithoutGroupIDAndTag, req.ModuleName, req.ThumbnailUrl, req.CreatedBy)
 		}
 	}
 
+	err = row.Scan(&id)
 	if err != nil {
-		slog.ErrorContext(ctx, "[moduleRepoImpl][CreateModule] error while QueryContext", "%v", err.Error())
-		return id, err
+		slog.ErrorContext(ctx, "[moduleRepoImpl][CreateModule] error while row.Scan", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return
 	}
 
-	defer rows.Close()
-
-	for rows.Next() {
-		err = rows.Scan(&id)
-		if err != nil {
-			slog.ErrorContext(ctx, "[moduleRepoImpl][CreateModule] error while rows.Scan", "%v", err.Error())
-			return id, err
-		}
-	}
-
-	return id, nil
+	return
 }
 
 func (m *ModuleRepoImpl) GetModuleByID(ctx context.Context, id int64) (module models.Module, err error) {
