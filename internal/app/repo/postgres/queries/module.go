@@ -76,4 +76,13 @@ const (
 		SET deleted_at = NOW(), deleted_by = $1, updated_at = NOW(), updated_by = $2
 		WHERE id = $3
 		`
+
+	QueryRemoveGroudIDFromModules = `
+		UPDATE modules
+		SET
+			group_id = NULL,
+			updated_at = NOW(),
+			updated_by = $1
+		WHERE group_id = $2
+	`
 )

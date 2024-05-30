@@ -19,6 +19,7 @@ type (
 		GetModules(ctx context.Context, req models.PaginationRequest) (modules []models.Module, totalCount int64, err error)
 		GetModulesByGroupID(ctx context.Context, groupID int64) (modules []models.Module, err error)
 		SoftDeleteModule(ctx context.Context, moduleId int64, operator string) (err error)
+		RemoveGroupIDFromModules(ctx context.Context, groupId int64, operator string) (err error)
 	}
 
 	ModuleRepoImpl struct {
@@ -103,6 +104,8 @@ func (m *ModuleRepoImpl) GetModules(ctx context.Context, req models.PaginationRe
 		query = queries.QueryGetModules
 	)
 
+	req.Page = (req.Page - 1) * req.Limit
+
 	args := []interface{}{}
 
 	if !req.ShowAll {
@@ -171,6 +174,17 @@ func (m *ModuleRepoImpl) SoftDeleteModule(ctx context.Context, moduleId int64, o
 
 	if affected, _ := result.RowsAffected(); affected == 0 {
 		slog.ErrorContext(ctx, "[moduleRepoImpl][SoftDeleteModule] error while RowsAffected", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return err
+	}
+
+	return nil
+}
+
+func (m *ModuleRepoImpl) RemoveGroupIDFromModules(ctx context.Context, groupId int64, operator string) (err error) {
+	_, err = m.ExecContext(ctx, queries.QueryRemoveGroudIDFromModules, operator, groupId)
+	if err != nil {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][RemoveGroupIDFromModules] error while ExecContext", "%v", err.Error())
 		err = fmt.Errorf("something went wrong, we will fix it soon")
 		return err
 	}

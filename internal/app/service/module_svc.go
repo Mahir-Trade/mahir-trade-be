@@ -179,10 +179,6 @@ func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.PaginationReq
 		dataResp.Code = http.StatusOK
 		dataResp.Message = "Success"
 		dataResp.Data = struct{}{}
-
-		if req.Page > 1 {
-			req.Page = (req.Page - 1) * req.Limit
-		}
 	}
 
 	modules, totalData, err := m.ModuleRepo.GetModules(ctx, req)
@@ -228,7 +224,7 @@ func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.PaginationReq
 
 	{
 		dataResp.Data = respData
-		resp.Page = uint(req.Page) + 1
+		resp.Page = uint(req.Page)
 		resp.Limit = uint(req.Limit)
 
 		totalPage := math.Ceil(float64(totalData) / float64(req.Limit))
