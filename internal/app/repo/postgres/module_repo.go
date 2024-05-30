@@ -99,22 +99,27 @@ func (m *ModuleRepoImpl) UpdateModule(ctx context.Context, req models.Module) (e
 
 func (m *ModuleRepoImpl) GetModules(ctx context.Context, req models.PaginationRequest) (modules []models.Module, totalCount int64, err error) {
 	var (
-		rows *sql.Rows
+		rows  *sql.Rows
+		query = queries.QueryGetModules
 	)
-	if req.Search != "" {
-		rows, err = m.QueryContext(ctx, queries.QueryGetModulesWithSearch, req.Search, req.Limit, req.Page)
-		if err != nil {
-			slog.ErrorContext(ctx, "[moduleRepoImpl][searchExist] error while QueryContext err", "%v", err.Error())
-			err = fmt.Errorf("something went wrong, we will fix it soon")
-			return
+
+	args := []interface{}{}
+
+	if !req.ShowAll {
+		if req.Search != "" {
+			query += " AND m.module_name ILIKE '%' || $1 || '%'"
+			args = append(args, req.Search)
 		}
-	} else {
-		rows, err = m.QueryContext(ctx, queries.QueryGetModules, req.Limit, req.Page)
-		if err != nil {
-			slog.ErrorContext(ctx, "[moduleRepoImpl][searchNotExist] error while QueryContext", "%v", err.Error())
-			err = fmt.Errorf("something went wrong, we will fix it soon")
-			return
-		}
+
+		args = append(args, req.Limit, req.Page)
+		query += fmt.Sprintf(" ORDER BY m.created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	}
+
+	rows, err = m.QueryContext(ctx, query, args...)
+	if err != nil {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][searchNotExist] error while QueryContext", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return
 	}
 
 	defer rows.Close()

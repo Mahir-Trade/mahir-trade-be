@@ -180,7 +180,9 @@ func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.PaginationReq
 		dataResp.Message = "Success"
 		dataResp.Data = struct{}{}
 
-		req.Page = req.Page - 1
+		if req.Page > 1 {
+			req.Page = (req.Page - 1) * req.Limit
+		}
 	}
 
 	modules, totalData, err := m.ModuleRepo.GetModules(ctx, req)

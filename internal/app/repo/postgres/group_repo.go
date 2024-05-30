@@ -67,16 +67,24 @@ func (g *GroupRepoImpl) GetGroupByID(ctx context.Context, id int64) (group model
 }
 
 func (g *GroupRepoImpl) GetGroups(ctx context.Context, req models.GetGroupsRequest) (groups []models.Group, totalCount int64, err error) {
-	if req.Limit == 0 {
-		req.Limit = 10
+	args := []interface{}{}
+	query := queries.QueryGetGroups
+
+	if !req.ShowAll {
+		if req.Limit == 0 {
+			req.Limit = 10
+		}
+
+		offset := 0
+		if req.Page > 1 {
+			offset = int((req.Page - 1) * req.Limit)
+		}
+
+		args = append(args, req.Limit, offset)
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
 	}
 
-	offset := 0
-	if req.Page > 1 {
-		offset = int((req.Page - 1) * req.Limit)
-	}
-
-	rows, err := g.QueryContext(ctx, queries.QueryGetGroups, req.Limit, offset)
+	rows, err := g.QueryContext(ctx, query, args...)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetGroups err: %v", err.Error()))
 		return groups, totalCount, err

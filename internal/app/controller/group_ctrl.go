@@ -126,19 +126,14 @@ func (ox *GroupCtrlImpl) GetGroups(ec echo.Context) error {
 		}
 	}()
 
-	limit, err := strconv.ParseInt(ec.QueryParam("limit"), 10, 64)
-	if err != nil {
-		limit = 10
-	}
-
-	page, err := strconv.ParseInt(ec.QueryParam("page"), 10, 64)
-	if err != nil {
-		page = 1
-	}
-
-	req := models.GetGroupsRequest{
-		Limit: limit,
-		Page:  page,
+	var req models.GetGroupsRequest
+	if err := ec.Bind(&req); err != nil {
+		slog.Error("GetGroups - something went wrong, bind error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request",
+			Error:   "invalid pagination request",
+		})
 	}
 
 	resp, err := ox.GroupSvc.GetGroups(ctx, req)

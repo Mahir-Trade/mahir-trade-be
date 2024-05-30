@@ -45,18 +45,9 @@ const (
 		`
 
 	QueryGetModules = `
-		WITH count AS (
-			SELECT COUNT(id) as total_count
-			FROM modules
-			WHERE deleted_at IS NULL
-		)
-		SELECT count.total_count, m.id, m.uuid, m.group_id, m.module_name, m.thumbnail_url, m.tag, m.created_by, m.created_at, m.updated_at, m.updated_by
+		SELECT COUNT(*) OVER() as total_count, m.id, m.uuid, m.group_id, m.module_name, m.thumbnail_url, m.tag, m.created_by, m.created_at, m.updated_at, m.updated_by
 		FROM modules AS m
-		JOIN count ON TRUE
 		WHERE m.deleted_at IS NULL
-		ORDER BY m.created_at DESC
-		LIMIT $1
-		OFFSET $2
 		`
 
 	QueryGetModulesWithSearch = `

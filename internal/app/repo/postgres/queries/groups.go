@@ -18,8 +18,6 @@ const (
 		SELECT id, uuid, group_name, created_at, updated_at
 		FROM groups
 		WHERE deleted_at IS NULL
-		LIMIT $1
-		OFFSET $2
 	`
 
 	QueryGetTotalGroups = `

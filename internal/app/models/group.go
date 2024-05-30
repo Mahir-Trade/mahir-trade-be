@@ -10,7 +10,8 @@ type (
 	}
 
 	GetGroupsRequest struct {
-		Limit int64 `json:"limit"`
-		Page  int64 `json:"page"`
+		Limit   int64 `query:"limit"`
+		Page    int64 `query:"page"`
+		ShowAll bool  `query:"showAll"`
 	}
 )
