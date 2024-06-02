@@ -77,6 +77,7 @@ func setRoute(
 		modules.GET("/group/:group_id", moduleCtrl.GetModulesByGroupID)
 		modules.POST("", moduleCtrl.CreateModule, middleware.AuthAdminOrUser("admin"))
 		modules.PATCH("/:module_id", moduleCtrl.UpdateModule, middleware.AuthAdminOrUser("admin"))
+		modules.DELETE("/:module_id", moduleCtrl.DeleteModule, middleware.AuthAdminOrUser("admin"))
 	}
 
 	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"))

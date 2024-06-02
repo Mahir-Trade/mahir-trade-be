@@ -77,7 +77,7 @@ const (
 		WHERE id = $3
 		`
 
-	QueryRemoveGroudIDFromModules = `
+	QueryRemoveGroupIDFromModules = `
 		UPDATE modules
 		SET
 			group_id = NULL,

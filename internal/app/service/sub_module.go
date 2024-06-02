@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres"
@@ -13,12 +14,33 @@ import (
 )
 
 type (
+	SubModuleRequest struct {
+		ModuleID      int64  `json:"module_id"`
+		SubModuleName string `json:"sub_module_name" validate:"required"`
+		Title         string `json:"title" validate:"required"`
+		VideoURL      string `json:"video_url" validate:"required"`
+	}
+
+	SubModuleResponse struct {
+		ID            int64  `json:"id"`
+		UUID          string `json:"uuid"`
+		ModuleID      int64  `json:"module_id"`
+		ModuleName    string `json:"module_name"`
+		SubModuleName string `json:"sub_module_name"`
+		Title         string `json:"title"`
+		VideoURL      string `json:"video_url"`
+		CreatedBy     string `json:"created_by"`
+		UpdatedBy     string `json:"updated_by"`
+		CreatedAt     string `json:"created_at,omitempty"`
+		UpdatedAt     string `json:"updated_at,omitempty"`
+	}
+
 	SubModuleSvc interface {
-		CreateSubModule(ctx context.Context, req models.SubModule) (resp models.DefaultResponse, err error)
+		CreateSubModule(ctx context.Context, req SubModuleRequest) (resp models.DefaultResponse, err error)
 		GetSubModuleByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetSubModulesByModuleID(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error)
-		UpdateSubModule(ctx context.Context, req models.SubModule) (resp models.DefaultResponse, err error)
+		UpdateSubModule(ctx context.Context, id int64, req SubModuleRequest) (resp models.DefaultResponse, err error)
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64) (resp models.DefaultResponse, err error)
 	}
 
@@ -34,7 +56,7 @@ func NewSubModuleSvc(impl SubModuleSvcImpl) SubModuleSvc {
 	return &impl
 }
 
-func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req models.SubModule) (resp models.DefaultResponse, err error) {
+func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req SubModuleRequest) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
@@ -49,9 +71,21 @@ func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req models.SubMo
 		return
 	}
 
-	req.CreatedBy = adminData.Username
+	subModuleEntry := models.SubModule{
+		SubModuleName: req.SubModuleName,
+		Title:         req.Title,
+		VideoURL:      req.VideoURL,
+		CreatedBy:     adminData.Username,
+	}
 
-	id, err := s.SubModuleRepo.CreateSubModule(ctx, req)
+	if req.ModuleID != 0 {
+		subModuleEntry.ModuleID = sql.NullInt64{
+			Int64: req.ModuleID,
+			Valid: true,
+		}
+	}
+
+	id, err := s.SubModuleRepo.CreateSubModule(ctx, subModuleEntry)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][CreateSubModule] error while create sub module err: %v", err)
 		resp.Code = http.StatusInternalServerError
@@ -88,7 +122,7 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error) {
 	var (
 		dataResp       models.DefaultResponse
-		submodulesData []models.SubModule
+		submodulesData []SubModuleResponse
 	)
 	{
 		dataResp.Code = http.StatusOK
@@ -101,17 +135,16 @@ func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.Paginat
 	subModules, totalData, err := s.SubModuleRepo.GetSubModules(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModules] error while get sub modules err: %v", err)
-		dataResp.Code = http.StatusInternalServerError
-		dataResp.Message = "Internal Server Error, we will fix it soon"
-		dataResp.Error = "Internal Server Error, we will fix it soon"
+		dataResp.Code = http.StatusNotFound
+		dataResp.Message = "Data Not Found"
+		dataResp.Error = "Data Not Found"
 		return
 	}
 
 	for _, subModule := range subModules {
-		submoduleData := models.SubModule{
+		submoduleData := SubModuleResponse{
 			ID:            subModule.ID,
 			UUID:          subModule.UUID,
-			ModuleID:      subModule.ModuleID,
 			SubModuleName: subModule.SubModuleName,
 			Title:         subModule.Title,
 			VideoURL:      subModule.VideoURL,
@@ -120,15 +153,15 @@ func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.Paginat
 			CreatedAt:     subModule.CreatedAt,
 			UpdatedAt:     subModule.UpdatedAt,
 		}
-		module, errModule := s.ModuleRepo.GetModuleByID(ctx, subModule.ModuleID)
-		if errModule != nil {
-			slog.ErrorContext(ctx, "[service][GetSubModules] error while get module by id err: %v", err)
-			dataResp.Code = http.StatusInternalServerError
-			dataResp.Message = "Internal Server Error, we will fix it soon"
-			dataResp.Error = "Internal Server Error, we will fix it soon"
-			return
+
+		if subModule.ModuleID.Valid {
+			module, errModule := s.ModuleRepo.GetModuleByID(ctx, subModule.ModuleID.Int64)
+			if errModule != nil {
+				slog.ErrorContext(ctx, "[service][GetSubModules] error while get module by id err: %v", err)
+			}
+			submoduleData.ModuleID = module.ID
+			submoduleData.ModuleName = module.ModuleName
 		}
-		submoduleData.ModuleName = module.ModuleName
 		submodulesData = append(submodulesData, submoduleData)
 	}
 
@@ -150,7 +183,7 @@ func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.Paginat
 
 }
 
-func (s *SubModuleSvcImpl) UpdateSubModule(ctx context.Context, req models.SubModule) (resp models.DefaultResponse, err error) {
+func (s *SubModuleSvcImpl) UpdateSubModule(ctx context.Context, id int64, req SubModuleRequest) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
@@ -166,14 +199,31 @@ func (s *SubModuleSvcImpl) UpdateSubModule(ctx context.Context, req models.SubMo
 		return
 	}
 
-	req.UpdatedBy = adminData.Username
+	entryUpdateSubModule := models.SubModule{
+		ID:            id,
+		SubModuleName: req.SubModuleName,
+		Title:         req.Title,
+		VideoURL:      req.VideoURL,
+		UpdatedBy:     adminData.Username,
+	}
 
-	err = s.SubModuleRepo.UpdateSubModule(ctx, req)
+	if req.ModuleID == 0 {
+		slog.ErrorContext(ctx, "[service][UpdateSubModule] error while update sub module, module id is required")
+		resp.Code = http.StatusBadRequest
+		resp.Message = "Bad Request"
+		resp.Error = "module ID is required"
+		return
+	}
+	entryUpdateSubModule.ModuleID = sql.NullInt64{
+		Int64: req.ModuleID,
+		Valid: true,
+	}
+	err = s.SubModuleRepo.UpdateSubModule(ctx, entryUpdateSubModule)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][UpdateSubModule] error while update sub module err: %v", err)
 		resp.Code = http.StatusInternalServerError
-		resp.Message = "Internal Server Error, Please try again later"
-		resp.Error = "Internal Server Error"
+		resp.Message = "error while updating sub Module"
+		resp.Error = "error while Updating sub module"
 		return
 	}
 
@@ -210,7 +260,7 @@ func (s *SubModuleSvcImpl) SoftDeleteSubModule(ctx context.Context, subModuleId 
 
 func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error) {
 	var (
-		submodulesData []models.SubModule
+		submodulesData []SubModuleResponse
 	)
 	{
 		resp.Code = http.StatusOK
@@ -221,17 +271,16 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 	subModules, err := s.SubModuleRepo.GetSubModulesByModuleID(ctx, moduleID)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModulesByModuleID] error while get sub modules by module id err: %v", err)
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "Internal Server Error, we will fix it soon"
-		resp.Error = "Internal Server Error, we will fix it soon"
+		resp.Code = http.StatusNotFound
+		resp.Message = "Data Not Found"
+		resp.Error = "Data Not Found"
 		return
 	}
 
 	for _, subModule := range subModules {
-		submoduleData := models.SubModule{
+		submoduleData := SubModuleResponse{
 			ID:            subModule.ID,
 			UUID:          subModule.UUID,
-			ModuleID:      subModule.ModuleID,
 			SubModuleName: subModule.SubModuleName,
 			Title:         subModule.Title,
 			VideoURL:      subModule.VideoURL,
@@ -240,16 +289,16 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 			CreatedAt:     subModule.CreatedAt,
 			UpdatedAt:     subModule.UpdatedAt,
 		}
-		module, errModule := s.ModuleRepo.GetModuleByID(ctx, subModule.ModuleID)
-		if errModule != nil {
-			slog.ErrorContext(ctx, "[service][GetSubModulesByModuleID] error while get module by id err: %v", err)
-			resp.Code = http.StatusInternalServerError
-			resp.Message = "Internal Server Error, we will fix it soon"
-			resp.Error = "Internal Server Error, we will fix it soon"
-			return
+
+		if subModule.ModuleID.Valid {
+			module, errModule := s.ModuleRepo.GetModuleByID(ctx, subModule.ModuleID.Int64)
+			if errModule != nil {
+				slog.ErrorContext(ctx, "[service][GetSubModulesByModuleID] error while get module by id err: %v", err)
+			}
+			submoduleData.ModuleID = module.ID
+			submoduleData.ModuleName = module.ModuleName
+			submodulesData = append(submodulesData, submoduleData)
 		}
-		submoduleData.ModuleName = module.ModuleName
-		submodulesData = append(submodulesData, submoduleData)
 	}
 
 	{

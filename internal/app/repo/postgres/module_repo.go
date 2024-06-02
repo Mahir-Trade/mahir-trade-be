@@ -182,7 +182,7 @@ func (m *ModuleRepoImpl) SoftDeleteModule(ctx context.Context, moduleId int64, o
 }
 
 func (m *ModuleRepoImpl) RemoveGroupIDFromModules(ctx context.Context, groupId int64, operator string) (err error) {
-	_, err = m.ExecContext(ctx, queries.QueryRemoveGroudIDFromModules, operator, groupId)
+	_, err = m.ExecContext(ctx, queries.QueryRemoveGroupIDFromModules, operator, groupId)
 	if err != nil {
 		slog.ErrorContext(ctx, "[moduleRepoImpl][RemoveGroupIDFromModules] error while ExecContext", "%v", err.Error())
 		err = fmt.Errorf("something went wrong, we will fix it soon")

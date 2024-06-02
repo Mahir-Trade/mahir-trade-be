@@ -44,13 +44,15 @@ type (
 		GetModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetModulesByGroupID(ctx context.Context, groupID int64) (resp models.DefaultResponse, err error)
 		UpdateModule(ctx context.Context, moduleID int64, req ModuleRequest) (resp models.DefaultResponse, err error)
+		DeleteModule(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error)
 	}
 
 	ModuleSvcImpl struct {
 		dig.In
 
-		ModuleRepo postgres.ModuleRepo
-		GroupRepo  postgres.GroupRepo
+		ModuleRepo    postgres.ModuleRepo
+		GroupRepo     postgres.GroupRepo
+		SubModuleRepo postgres.SubModuleRepo
 	}
 )
 
@@ -205,10 +207,6 @@ func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.PaginationReq
 			group, errGroup := m.GroupRepo.GetGroupByID(ctx, module.GroupID.Int64)
 			if errGroup != nil {
 				slog.ErrorContext(ctx, "[service][GetModules] error while GetGroupByID err", "%v", errGroup.Error())
-				dataResp.Code = http.StatusInternalServerError
-				dataResp.Message = "internal server error, we will fix it soon"
-				dataResp.Error = errors.New("something went wrong, we will fix it soon").Error()
-				return
 			}
 			data.GroupID = module.GroupID.Int64
 			data.GroupName = group.GroupName
@@ -362,5 +360,59 @@ func (m *ModuleSvcImpl) GetModulesByGroupID(ctx context.Context, groupID int64) 
 	{
 		resp.Data = respData
 	}
+	return
+}
+
+func (m *ModuleSvcImpl) DeleteModule(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "Success"
+	}
+
+	adminData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
+
+	module, err := m.ModuleRepo.GetModuleByID(ctx, moduleID)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = err
+		slog.ErrorContext(ctx, "[service][DeleteModule] error while GetModuleByID err", "%v", err)
+		return
+	}
+
+	if module.ID == 0 {
+		errMsg := "module not found"
+		resp.Code = http.StatusBadRequest
+		resp.Message = errMsg
+		resp.Error = err
+		slog.ErrorContext(ctx, "[service][DeleteModule] err", "%v", errMsg)
+
+		return resp, errors.New(errMsg)
+	}
+
+	err = m.ModuleRepo.SoftDeleteModule(ctx, moduleID, adminData.Username)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][DeleteModule] error while SoftDeleteModule err", "%v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
+
+	err = m.SubModuleRepo.RemoveModuleIDFromSubModules(ctx, moduleID, adminData.Username)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][DeleteModule] error while RemoveModuleIDFromSubModules err", "%v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
+
 	return
 }

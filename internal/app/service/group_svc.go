@@ -203,7 +203,7 @@ func (g *GroupSvcImpl) DeleteGroup(ctx context.Context, groupId int64) (resp mod
 		return resp, errors.New(errMsg)
 	}
 
-	err = g.GroupRepo.SoftDeleteGroup(ctx, groupId, adminData.Email)
+	err = g.GroupRepo.SoftDeleteGroup(ctx, groupId, adminData.Username)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "bad request"
@@ -213,7 +213,7 @@ func (g *GroupSvcImpl) DeleteGroup(ctx context.Context, groupId int64) (resp mod
 		return resp, err
 	}
 
-	err = g.ModuleRepo.RemoveGroupIDFromModules(ctx, groupId, adminData.Email)
+	err = g.ModuleRepo.RemoveGroupIDFromModules(ctx, groupId, adminData.Username)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "bad request"
