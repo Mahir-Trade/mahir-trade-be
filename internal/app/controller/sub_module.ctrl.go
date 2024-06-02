@@ -43,7 +43,7 @@ func (ox *SubModuleCtrlImpl) CreateSubModule(ec echo.Context) error {
 		}
 	}()
 
-	var req models.SubModule
+	var req service.SubModuleRequest
 
 	if err := ec.Bind(&req); err != nil {
 		slog.Error("CreateSubModule - error binding request body", err)
@@ -204,7 +204,7 @@ func (ox *SubModuleCtrlImpl) GetSubModulesByModuleID(ec echo.Context) error {
 	res, err := ox.SubModuleSvc.GetSubModulesByModuleID(ctx, moduleID)
 	if err != nil {
 		slog.Error("GetSubModuleByModuleID - something went wrong", err)
-		return ec.JSON(http.StatusInternalServerError, res)
+		return ec.JSON(res.Code, res)
 	}
 
 	return ec.JSON(http.StatusOK, res)
@@ -239,7 +239,7 @@ func (ox *SubModuleCtrlImpl) UpdateSubModule(ec echo.Context) error {
 		})
 	}
 
-	var req models.SubModule
+	var req service.SubModuleRequest
 
 	if err := ec.Bind(&req); err != nil {
 		slog.Error("UpdateSubModule - error binding request body", err)
@@ -262,9 +262,7 @@ func (ox *SubModuleCtrlImpl) UpdateSubModule(ec echo.Context) error {
 		})
 	}
 
-	req.ID = subModuleID
-
-	res, err := ox.SubModuleSvc.UpdateSubModule(ctx, req)
+	res, err := ox.SubModuleSvc.UpdateSubModule(ctx, subModuleID, req)
 	if err != nil {
 		slog.Error("UpdateSubModule - something went wrong", err)
 		return ec.JSON(res.Code, res)

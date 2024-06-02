@@ -19,6 +19,7 @@ type (
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (subModules []models.SubModule, totalCount int64, err error)
 		UpdateSubModule(ctx context.Context, req models.SubModule) (err error)
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64, operator string) (err error)
+		RemoveModuleIDFromSubModules(ctx context.Context, moduleID int64, operator string) (err error)
 	}
 
 	SubModuleRepoImpl struct {
@@ -33,21 +34,25 @@ func NewSubModuleRepo(impl SubModuleRepoImpl) SubModuleRepo {
 }
 
 func (s *SubModuleRepoImpl) CreateSubModule(ctx context.Context, req models.SubModule) (id int, err error) {
-	rows, err := s.QueryContext(ctx, queries.QueryCreateSubModule, req.ModuleID, req.SubModuleName, req.Title, req.VideoURL, req.CreatedBy)
+	var (
+		row *sql.Row
+	)
+
+	if req.ModuleID.Valid {
+		row = s.QueryRowContext(ctx, queries.QueryCreateSubModule, req.ModuleID, req.SubModuleName, req.Title, req.VideoURL, req.CreatedBy)
+	} else {
+		row = s.QueryRowContext(ctx, queries.QueryCreateSubModuleWithoutModuleID, req.SubModuleName, req.Title, req.VideoURL, req.CreatedBy)
+	}
+
+	err = row.Scan(&id)
 	if err != nil {
-		return id, err
+		slog.ErrorContext(ctx, "[subModuleRepoImpl][CreateSubModule] error while row.Scan", "%v", err.Error())
+		err = fmt.Errorf("something went wrong, we will fix it soon")
+		return
 	}
 
-	defer rows.Close()
+	return
 
-	for rows.Next() {
-		err = rows.Scan(&id)
-		if err != nil {
-			return id, err
-		}
-	}
-
-	return id, nil
 }
 
 func (s *SubModuleRepoImpl) GetSubModuleByID(ctx context.Context, id int64) (subModule models.SubModule, err error) {
@@ -113,7 +118,7 @@ func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleI
 }
 
 func (s *SubModuleRepoImpl) UpdateSubModule(ctx context.Context, req models.SubModule) (err error) {
-	result, err := s.ExecContext(ctx, queries.QueryUpdateSubModule, req.SubModuleName, req.Title, req.VideoURL, req.UpdatedBy, req.ID)
+	result, err := s.ExecContext(ctx, queries.QueryUpdateSubModule, req.SubModuleName, req.Title, req.VideoURL, req.UpdatedBy, req.ModuleID, req.ID)
 	if err != nil {
 		slog.ErrorContext(ctx, "[subModuleRepoImpl][UpdateSubModule] error while ExecContext", "%v", err.Error())
 		err = fmt.Errorf("internal server error")
@@ -136,4 +141,15 @@ func (s *SubModuleRepoImpl) SoftDeleteSubModule(ctx context.Context, subModuleId
 	}
 
 	return nil
+}
+
+func (s *SubModuleRepoImpl) RemoveModuleIDFromSubModules(ctx context.Context, moduleID int64, operator string) (err error) {
+	_, err = s.ExecContext(ctx, queries.QueryRemoveModuleIDFromSubModules, operator, moduleID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[subModuleRepoImpl][RemoveModuleIDFromSubModules] error while ExecContext", "%v", err.Error())
+		err = fmt.Errorf("internal server error")
+		return err
+	}
+
+	return
 }
