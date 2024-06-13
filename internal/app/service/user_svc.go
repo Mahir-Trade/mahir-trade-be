@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"go.uber.org/dig"
 )
@@ -111,8 +112,8 @@ func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.User) (re
 	}
 
 	resp.Data = struct {
-		Token  string `json:"token"`
-		Expire int64  `json:"expire"`
+		Token  string    `json:"token"`
+		Expire time.Time `json:"expire"`
 	}{
 		Token:  token,
 		Expire: exp,
@@ -164,8 +165,8 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 	}
 
 	resp.Data = struct {
-		Token  string `json:"token"`
-		Expire int64  `json:"expire"`
+		Token  string    `json:"token"`
+		Expire time.Time `json:"expire"`
 	}{
 		Token:  token,
 		Expire: exp,
@@ -517,8 +518,8 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 			Code:    http.StatusOK,
 			Message: "success",
 			Data: struct {
-				Token  string `json:"token"`
-				Expire int64  `json:"expire"`
+				Token  string    `json:"token"`
+				Expire time.Time `json:"expire"`
 			}{
 				Token:  token,
 				Expire: exp,
@@ -572,8 +573,8 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 		Code:    http.StatusOK,
 		Message: "success",
 		Data: struct {
-			Token  string `json:"token"`
-			Expire int64  `json:"expire"`
+			Token  string    `json:"token"`
+			Expire time.Time `json:"expire"`
 		}{
 			Token:  token,
 			Expire: exp,

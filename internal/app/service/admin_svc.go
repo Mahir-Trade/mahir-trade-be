@@ -12,6 +12,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.uber.org/dig"
 )
@@ -86,8 +87,8 @@ func (a *AdminSvcImpl) AdminLogin(ctx context.Context, req AdminLoginRequest) (r
 	}
 
 	resp.Data = struct {
-		Token string `json:"token"`
-		Exp   int64  `json:"exp"`
+		Token string    `json:"token"`
+		Exp   time.Time `json:"exp"`
 	}{
 		Token: token,
 		Exp:   exp,
@@ -140,8 +141,8 @@ func (a *AdminSvcImpl) AdminRegistration(ctx context.Context, req models.Admin) 
 	}
 
 	resp.Data = struct {
-		Token string `json:"token"`
-		Exp   int64  `json:"exp"`
+		Token string    `json:"token"`
+		Exp   time.Time `json:"exp"`
 	}{
 		Token: token,
 		Exp:   exp,
