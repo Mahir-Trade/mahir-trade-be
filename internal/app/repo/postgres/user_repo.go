@@ -35,7 +35,7 @@ func NewUserRepo(impl UserRepoImpl) UserRepo {
 }
 
 func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int, err error) {
-	_, err = u.QueryContext(ctx, queries.QueryCreateUser, req.Email, req.PhoneNumber, req.Username, req.Password)
+	rows, err := u.QueryContext(ctx, queries.QueryCreateUser, req.Email, req.PhoneNumber, req.Username, req.Password)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return id, fmt.Errorf("email or username already exist")
@@ -43,6 +43,15 @@ func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int,
 
 		slog.ErrorContext(ctx, fmt.Sprintf("error while CreateUser err: %v", err.Error()))
 		return id, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(&id)
+		if err != nil {
+			return id, err
+		}
 	}
 
 	return id, nil
