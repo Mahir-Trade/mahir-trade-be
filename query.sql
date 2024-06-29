@@ -6,7 +6,6 @@ CREATE TABLE "users" (
   "phone_number" varchar(40) NULL,
   "password" varchar(255) NOT NULL,
   "email" varchar(255) NOT NULL,
-  "fullname" varchar(255) NOT NULL,
   "username" varchar(255) NOT NULL,
   "is_active" bool DEFAULT false,
   "created_at" timestamp DEFAULT now(),

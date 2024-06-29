@@ -541,7 +541,6 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 
 	userReq := models.User{
 		Email:    userEmail,
-		Fullname: userInfo.Name,
 		Username: userName,
 		Password: passwordHash,
 	}

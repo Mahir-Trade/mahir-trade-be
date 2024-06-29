@@ -2,23 +2,23 @@ package queries
 
 const (
 	QueryCreateUser = `
-		INSERT INTO users (email, fullname, phone_number, username, password, is_active) VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING user_id
+		INSERT INTO users (email, phone_number, username, password, is_active) VALUES ($1, $2, $3, $4, TRUE) RETURNING user_id
 	`
 
 	QueryFindUserByEmailOrUsename = `
-		SELECT user_id, uuid, fullname, phone_number, username, email, password FROM users WHERE email = $1 OR username = $1
+		SELECT user_id, uuid, phone_number, username, email, password FROM users WHERE email = $1 OR username = $1
 	`
 
 	QueryFindUserByEmailAndUsername = `
-		SELECT user_id, uuid, fullname, phone_number, username, email, password FROM users WHERE email = $1 AND username = $2
+		SELECT user_id, uuid, phone_number, username, email, password FROM users WHERE email = $1 AND username = $2
 	`
 
 	QueryGetUserByID = `
-		SELECT user_id, uuid, fullname, phone_number, username, email, password, is_active FROM users WHERE user_id = $1 AND deleted_at IS NULL
+		SELECT user_id, uuid, phone_number, username, email, password, is_active FROM users WHERE user_id = $1 AND deleted_at IS NULL
 	`
 
 	QueryGetUserByUUID = `
-		SELECT user_id, uuid, fullname, phone_number, username, email, password FROM users WHERE uuid = $1 AND deleted_at IS NULL
+		SELECT user_id, uuid, phone_number, username, email, password FROM users WHERE uuid = $1 AND deleted_at IS NULL
 	`
 
 	QueryUpdateTypeUser = `
@@ -34,7 +34,6 @@ const (
 			u.uuid,
 			u.phone_number,
 			u.email,
-			u.fullname,
 			u.username,
 			u.is_active,
 			u.created_at,

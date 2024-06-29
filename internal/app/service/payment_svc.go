@@ -115,7 +115,7 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 			},
 		},
 		CustomerDetails: models.CustomerDetails{
-			FirstName: user.Fullname,
+			FirstName: user.Username,
 			Email:     currUser.Email,
 			Phone:     user.PhoneNumber,
 		},

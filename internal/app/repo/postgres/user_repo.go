@@ -35,7 +35,7 @@ func NewUserRepo(impl UserRepoImpl) UserRepo {
 }
 
 func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int, err error) {
-	_, err = u.QueryContext(ctx, queries.QueryCreateUser, req.Email, req.Fullname, req.PhoneNumber, req.Username, req.Password)
+	_, err = u.QueryContext(ctx, queries.QueryCreateUser, req.Email, req.PhoneNumber, req.Username, req.Password)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return id, fmt.Errorf("email or username already exist")
@@ -50,7 +50,7 @@ func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int,
 
 func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailOrUsename, req)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailOrUsername err: %v", err.Error()))
 		return user, err
@@ -61,7 +61,7 @@ func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string
 
 func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserByID, id)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password, &user.IsActive)
+	err = row.Scan(&user.UserID, &user.UUID, &user.PhoneNumber, &user.Username, &user.Email, &user.Password, &user.IsActive)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByID err: %v", err.Error()))
 
@@ -77,7 +77,7 @@ func (u *UserRepoImpl) GetUserByID(ctx context.Context, id int64) (user models.U
 
 func (u *UserRepoImpl) GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserByUUID, uuid)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetUserByUUID err: %v", err.Error()))
 		return user, err
@@ -97,7 +97,7 @@ func (u *UserRepoImpl) UpdateTypeUser(ctx context.Context, isActive bool, operat
 }
 func (u *UserRepoImpl) FindUserByEmailAndUsername(ctx context.Context, email, username string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailAndUsername, email, username)
-	err = row.Scan(&user.UserID, &user.UUID, &user.Fullname, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailAndUsername err: %v", err.Error()))
 		return user, err
@@ -117,7 +117,7 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 	}
 
 	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
-	queryParams = append(queryParams, req.Limit, int((req.Page - 1) * req.Limit))
+	queryParams = append(queryParams, req.Limit, int((req.Page-1)*req.Limit))
 
 	rows, err := u.QueryContext(ctx, query, queryParams...)
 	if err != nil {
@@ -135,7 +135,6 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 			&user.UUID,
 			&user.PhoneNumber,
 			&user.Email,
-			&user.Fullname,
 			&user.Username,
 			&user.IsActive,
 			&user.CreatedAt,
