@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
+	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/pkg/middleware"
 	"math"
@@ -41,6 +42,7 @@ type (
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetSubModulesByModuleID(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error)
 		UpdateSubModule(ctx context.Context, id int64, req SubModuleRequest) (resp models.DefaultResponse, err error)
+
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64) (resp models.DefaultResponse, err error)
 	}
 
@@ -49,6 +51,7 @@ type (
 
 		ModuleRepo    postgres.ModuleRepo
 		SubModuleRepo postgres.SubModuleRepo
+		BucketRepo    google.BucketRepo
 	}
 )
 
@@ -115,6 +118,18 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 		resp.Error = "Internal Server Error"
 		return
 	}
+
+	url, err := s.BucketRepo.PresignedURL(ctx, subModule.VideoURL)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error, Please try again later"
+		resp.Error = "Internal Server Error"
+		return
+	}
+
+	subModule.VideoURL = url
+
 	resp.Data = subModule
 	return
 }
