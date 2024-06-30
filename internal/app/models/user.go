@@ -14,4 +14,12 @@ type (
 		UpdatedAt   string `json:"updated_at,omitempty"`
 		UpdatedBy   string `json:"updated_by,omitempty"`
 	}
+
+	UserRegistrationRequest struct {
+		Email                string `json:"email" validate:"required,email"`
+		PhoneNumber          string `json:"phone_number,omitempty"`
+		Username             string `json:"username" validate:"required"`
+		Password             string `json:"password,omitempty" validate:"required,min=8,max=20,uppercase,lowercase,number,specialchar"`
+		PasswordConfirmation string `json:"password_confirmation,omitempty"`
+	}
 )

@@ -53,7 +53,7 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 		}
 	}()
 
-	var user models.User
+	var user models.UserRegistrationRequest
 
 	if err := ec.Bind(&user); err != nil {
 		slog.Error("UserRegistration - something went wrong", err)

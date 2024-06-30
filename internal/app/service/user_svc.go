@@ -37,7 +37,7 @@ type (
 	}
 
 	UserSvc interface {
-		UserRegistration(ctx context.Context, req models.User) (resp models.DefaultResponse, err error)
+		UserRegistration(ctx context.Context, req models.UserRegistrationRequest) (resp models.DefaultResponse, err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
 		AssignRoleDiscordToUser(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		RemoveRoleDiscordToUser(ctx context.Context) (resp models.DefaultResponse, err error)
@@ -66,10 +66,18 @@ func NewUserSvc(impl UserSvcImpl) UserSvc {
 	return &impl
 }
 
-func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.User) (resp models.DefaultResponse, err error) {
+func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.UserRegistrationRequest) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusCreated
 		resp.Message = "success"
+	}
+
+	if req.Password != req.PasswordConfirmation {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "password and password confirmation must be same"
+		resp.Error = errors.New(resp.Message).Error()
+
+		return resp, errors.New(resp.Message)
 	}
 
 	{
@@ -87,7 +95,12 @@ func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.User) (re
 		}
 	}
 
-	userId, err := u.UserRepo.CreateUser(ctx, req)
+	userId, err := u.UserRepo.CreateUser(ctx, models.User{
+		Email:       req.Email,
+		PhoneNumber: req.PhoneNumber,
+		Username:    req.Username,
+		Password:    req.Password,
+	})
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration] err : %v", err.Error()))
 		resp.Code = http.StatusBadRequest
