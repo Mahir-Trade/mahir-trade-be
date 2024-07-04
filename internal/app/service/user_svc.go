@@ -602,6 +602,8 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		resp.Message = "success"
 	}
 
+	var userDetailResp models.UserDetailResponse
+
 	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
 	if !ok {
 		resp.Code = http.StatusBadRequest
@@ -622,8 +624,32 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		return resp, err
 	}
 
-	user.Password = ""
-	resp.Data = user
+	userMembership, err := u.UserMembershipRepo.GetUserMembershipByUserID(ctx, int64(userData.UserID))
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "something went wrong"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUser][GetUserMembershipByUserID] err : %v", err))
+
+		return
+	}
+
+	userDetailResp = models.UserDetailResponse{
+		UserID:      user.UserID,
+		UUID:        user.UUID,
+		Email:       user.Email,
+		PhoneNumber: user.PhoneNumber,
+		Username:    user.Username,
+		IsActive:    user.IsActive,
+	}
+
+	if !userMembership.IsMembershipActive || userMembership.ID == 0 {
+		userDetailResp.IsMembershipActive = false
+	} else {
+		userDetailResp.IsMembershipActive = true
+	}
+
+	resp.Data = userDetailResp
 
 	return
 }
