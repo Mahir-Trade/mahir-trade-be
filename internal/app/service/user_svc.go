@@ -210,6 +210,25 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, code string) 
 		return resp, err
 	}
 
+	userMembership, err := u.UserMembershipRepo.GetUserMembershipByUserID(ctx, int64(userData.UserID))
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "something went wrong"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][GetUserMembershipByUserID] err : %v", err))
+
+		return
+	}
+
+	if !userMembership.IsMembershipActive || userMembership.ID == 0 {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "user membership is not active"
+		resp.Error = errors.New("user membership is not active").Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][GetUserMembershipByUserID] err : %v", err))
+
+		return
+	}
+
 	addRoleDiscordReq := discord.DiscordRoleRequest{UserID: resp.Data.(discord.DiscordUser).ID}
 	err = u.DiscordRepo.AddRoleToMember(addRoleDiscordReq)
 	if err != nil {
