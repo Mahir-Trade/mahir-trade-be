@@ -1,17 +1,43 @@
 version: '3.8'
 
 services:
+  reverse-proxy:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=arsyadrama7@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--accesslog=true"
+      - "--accesslog.filePath=/logs/access.log"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./logs/:/logs/"
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - proxy
+
   mahir-trade-db:
     image: postgres:latest
     restart: always
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mahir-trade
+      POSTGRES_USER: MahirTrade
+      POSTGRES_PASSWORD: MahirTrade123-
     ports:
-      - "5432:5432"
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - proxy
 
   mahir-trade-be:
     build:
@@ -24,9 +50,22 @@ services:
     environment:
       PG_HOST: mahir-trade-db
       PG_PORT: "5432"
-      PG_DBUSER: postgres
-      PG_DBPASS: postgres
+      PG_DBUSER: MahirTrade
+      PG_DBPASS: MahirTrade123-
       PG_DBNAME: mahir-trade
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mahir-trade-be.rule=Host(`api.nanoscape.my.id`)"
+      - "traefik.http.routers.mahir-trade-be.entrypoints=websecure"
+      - "traefik.http.routers.mahir-trade-be.tls.certresolver=myresolver"
+      - "traefik.http.services.mahir-trade-be.loadbalancer.server.port=8089"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: proxy
+    external: true
 
 volumes:
   postgres_data:
