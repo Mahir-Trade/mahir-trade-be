@@ -10,7 +10,7 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=arsyadrama7@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.email=mahirtrade.id@gmail.com"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--accesslog=true"
       - "--accesslog.filePath=/logs/access.log"
@@ -55,7 +55,7 @@ services:
       PG_DBNAME: mahir-trade
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mahir-trade-be.rule=Host(`api.nanoscape.my.id`)"
+      - "traefik.http.routers.mahir-trade-be.rule=Host(`api.mahirtrade.com`)"
       - "traefik.http.routers.mahir-trade-be.entrypoints=websecure"
       - "traefik.http.routers.mahir-trade-be.tls.certresolver=myresolver"
       - "traefik.http.services.mahir-trade-be.loadbalancer.server.port=8089"
