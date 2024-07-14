@@ -189,6 +189,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewGeneralLogRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewUserSubModuleRepo)
+	if err != nil {
+		return fmt.Errorf("NewUserSubModuleRepo: %s", err.Error())
+	}
+
 	err = di.Provide(google.NewBucketRepo)
 	if err != nil {
 		return fmt.Errorf("NewBucketRepo: %s", err.Error())

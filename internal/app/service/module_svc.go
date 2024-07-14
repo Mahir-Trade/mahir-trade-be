@@ -81,6 +81,14 @@ func (m *ModuleSvcImpl) CreateModule(ctx context.Context, req ModuleRequest) (re
 
 	{
 		if req.GroupID != 0 {
+			_, err = m.GroupRepo.GetGroupByID(ctx, req.GroupID)
+			if err != nil {
+				resp.Code = http.StatusBadRequest
+				resp.Message = "bad request"
+				resp.Error = err.Error()
+				return
+			}
+
 			model.GroupID = sql.NullInt64{
 				Int64: req.GroupID,
 				Valid: true,

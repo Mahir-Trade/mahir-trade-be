@@ -36,6 +36,10 @@ type (
 		UpdatedAt     string `json:"updated_at,omitempty"`
 	}
 
+	MarkSubModuleAsWatchedRequest struct {
+		SubModuleID int64 `json:"sub_module_id"`
+	}
+
 	SubModuleSvc interface {
 		CreateSubModule(ctx context.Context, req SubModuleRequest) (resp models.DefaultResponse, err error)
 		GetSubModuleByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
@@ -44,14 +48,16 @@ type (
 		UpdateSubModule(ctx context.Context, id int64, req SubModuleRequest) (resp models.DefaultResponse, err error)
 
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64) (resp models.DefaultResponse, err error)
+		MarkSubModuleAsWatched(ctx context.Context, req MarkSubModuleAsWatchedRequest) (resp models.DefaultResponse, err error)
 	}
 
 	SubModuleSvcImpl struct {
 		dig.In
 
-		ModuleRepo    postgres.ModuleRepo
-		SubModuleRepo postgres.SubModuleRepo
-		BucketRepo    google.BucketRepo
+		ModuleRepo        postgres.ModuleRepo
+		SubModuleRepo     postgres.SubModuleRepo
+		BucketRepo        google.BucketRepo
+		UserSubModuleRepo postgres.UserSubModuleRepo
 	}
 )
 
@@ -82,6 +88,15 @@ func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req SubModuleReq
 	}
 
 	if req.ModuleID != 0 {
+		_, err = s.ModuleRepo.GetModuleByID(ctx, req.ModuleID)
+		if err != nil {
+			slog.ErrorContext(ctx, "[service][CreateSubModule] error while get module by id err: %v", err)
+			resp.Code = http.StatusNotFound
+			resp.Message = "module not found"
+			resp.Error = err.Error()
+			return
+		}
+
 		subModuleEntry.ModuleID = sql.NullInt64{
 			Int64: req.ModuleID,
 			Valid: true,
@@ -318,6 +333,61 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 
 	{
 		resp.Data = submodulesData
+	}
+
+	return
+}
+
+func (s *SubModuleSvcImpl) MarkSubModuleAsWatched(ctx context.Context, req MarkSubModuleAsWatchedRequest) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "Success"
+	}
+
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		slog.ErrorContext(ctx, "[service][MarkSubModuleAsWatched] error while get user data from context")
+		resp.Code = http.StatusUnauthorized
+		resp.Message = "Unauthorized"
+		resp.Error = "forbidden access, role not allowed"
+		return
+	}
+
+	_, err = s.SubModuleRepo.GetSubModuleByID(ctx, req.SubModuleID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][MarkSubModuleAsWatched] error while get sub module by id err: %v", err)
+		resp.Code = http.StatusNotFound
+		resp.Message = "Sub Module Not Found"
+		resp.Error = "Sub Module Not Found"
+		return
+	}
+
+	userSubModule, err := s.UserSubModuleRepo.GetUserSubModuleBySubModuleIDAndUserID(ctx, userData.UserID, req.SubModuleID)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][MarkSubModuleAsWatched] error while get sub module by id err: %v", err)
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = err.Error()
+		return
+	}
+
+	if userSubModule.ID != 0 {
+		return
+	}
+
+	userSubModuleReq := models.UserSubModule{
+		UserID:      userData.UserID,
+		SubModuleID: req.SubModuleID,
+		CreatedBy:   userData.Email,
+	}
+
+	_, err = s.UserSubModuleRepo.CreateUserSubModule(ctx, userSubModuleReq)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][MarkSubModuleAsWatched] error while create user sub module err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error, Please try again later"
+		resp.Error = "Internal Server Error"
+		return
 	}
 
 	return

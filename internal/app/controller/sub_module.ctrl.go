@@ -21,6 +21,7 @@ type (
 		GetSubModulesByModuleID(ec echo.Context) error
 		UpdateSubModule(ec echo.Context) error
 		SoftDeleteSubModule(ec echo.Context) error
+		MarkSubModuleAsWatched(ec echo.Context) error
 	}
 
 	SubModuleCtrlImpl struct {
@@ -316,4 +317,45 @@ func (ox *SubModuleCtrlImpl) SoftDeleteSubModule(ec echo.Context) error {
 	}
 
 	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *SubModuleCtrlImpl) MarkSubModuleAsWatched(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("MarkSubModuleAsWatched - something went wrong", r)
+		}
+	}()
+
+	var req service.MarkSubModuleAsWatchedRequest
+
+	if err := ec.Bind(&req); err != nil {
+		slog.Error("MarkSubModuleAsWatched - error binding request body", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+	err := validate.Struct(req)
+	if err != nil {
+		slog.Error("MarkSubModuleAsWatched - validation error", err)
+		errors := err.(validator.ValidationErrors)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors.Error(),
+		})
+	}
+
+	res, err := ox.SubModuleSvc.MarkSubModuleAsWatched(ctx, req)
+	if err != nil {
+		slog.Error("MarkSubModuleAsWatched - something went wrong", err)
+		return ec.JSON(res.Code, res)
+	}
+
+	return ec.JSON(res.Code, res)
 }

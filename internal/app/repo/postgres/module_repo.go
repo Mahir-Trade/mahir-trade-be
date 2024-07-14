@@ -63,6 +63,10 @@ func (m *ModuleRepoImpl) GetModuleByID(ctx context.Context, id int64) (module mo
 	row := m.QueryRowContext(ctx, queries.QueryGetModuleByID, id)
 	err = row.Scan(&module.ID, &module.UUID, &module.GroupID, &module.ModuleName, &module.ThumbnailUrl, &module.Tag, &module.CreatedBy, &module.CreatedAt, &module.UpdatedAt, &module.UpdatedBy)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return module, fmt.Errorf("module with id %d not found", id)
+		}
+
 		slog.ErrorContext(ctx, "[moduleRepoImpl][GetModuleByID] error while row.Scan", "%v", err.Error())
 		return module, err
 	}
