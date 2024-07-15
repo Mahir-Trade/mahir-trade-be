@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres/queries"
+	"math"
 
 	"go.uber.org/dig"
 )
@@ -20,6 +21,7 @@ type (
 		GetModulesByGroupID(ctx context.Context, groupID int64) (modules []models.Module, err error)
 		SoftDeleteModule(ctx context.Context, moduleId int64, operator string) (err error)
 		RemoveGroupIDFromModules(ctx context.Context, groupId int64, operator string) (err error)
+		GetPercentageMarkWatchedModulesUser(ctx context.Context, userId int64, moduleId int64) (percentage float64, err error)
 	}
 
 	ModuleRepoImpl struct {
@@ -194,4 +196,17 @@ func (m *ModuleRepoImpl) RemoveGroupIDFromModules(ctx context.Context, groupId i
 	}
 
 	return nil
+}
+
+func (m *ModuleRepoImpl) GetPercentageMarkWatchedModulesUser(ctx context.Context, userId int64, moduleId int64) (percentage float64, err error) {
+	row := m.QueryRowContext(ctx, queries.QueryGetPercentageModulesUser, userId, moduleId, userId, moduleId)
+	err = row.Scan(&userId, &moduleId, &percentage)
+	if err != nil {
+		slog.ErrorContext(ctx, "[moduleRepoImpl][GetPercentageMarkWatchedModulesUser] error while row.Scan", "%v", err.Error())
+		return
+	}
+
+	percentage = math.Ceil(percentage)
+
+	return
 }

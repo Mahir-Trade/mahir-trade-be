@@ -22,6 +22,7 @@ type (
 		GetModulesByGroupID(ec echo.Context) error
 		UpdateModule(ec echo.Context) error
 		DeleteModule(ec echo.Context) error
+		GetPercetangeMarkWatchedModulesUser(ec echo.Context) error
 	}
 
 	ModuleCtrlImpl struct {
@@ -314,6 +315,51 @@ func (ox *ModuleCtrlImpl) DeleteModule(ec echo.Context) error {
 	resp, err := ox.ModuleSvc.DeleteModule(ctx, moduleID)
 	if err != nil {
 		slog.Error("DeleteModule - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, resp)
+	}
+
+	return ec.JSON(http.StatusOK, resp)
+}
+
+func (ox *ModuleCtrlImpl) GetPercetangeMarkWatchedModulesUser(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetPercetangeMarkWatchedModulesUser - something went wrong", r)
+		}
+	}()
+	id := ec.Param("module_id")
+	if id == "" {
+		slog.Error("DeleteModule - invalid request body")
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   "module id is required",
+		})
+	}
+	moduleID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		slog.Error("DeleteModule - parsing error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   "module id is required",
+		})
+	}
+
+	if moduleID == 0 {
+		slog.Error("DeleteModule - module id is required")
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   "module id is required",
+		})
+	}
+
+	resp, err := ox.ModuleSvc.GetPercentageMarkWatchedModulesUser(ctx, moduleID)
+	if err != nil {
+		slog.Error("GetPercetangeMarkWatchedModulesUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, resp)
 	}
 
