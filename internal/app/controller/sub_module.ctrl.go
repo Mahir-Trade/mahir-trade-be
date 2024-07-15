@@ -3,6 +3,7 @@ package controller
 import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
+	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
@@ -22,6 +23,7 @@ type (
 		UpdateSubModule(ec echo.Context) error
 		SoftDeleteSubModule(ec echo.Context) error
 		MarkSubModuleAsWatched(ec echo.Context) error
+		UploadFile(ec echo.Context) error
 	}
 
 	SubModuleCtrlImpl struct {
@@ -354,6 +356,50 @@ func (ox *SubModuleCtrlImpl) MarkSubModuleAsWatched(ec echo.Context) error {
 	res, err := ox.SubModuleSvc.MarkSubModuleAsWatched(ctx, req)
 	if err != nil {
 		slog.Error("MarkSubModuleAsWatched - something went wrong", err)
+		return ec.JSON(res.Code, res)
+	}
+
+	return ec.JSON(res.Code, res)
+}
+
+func (ox *SubModuleCtrlImpl) UploadFile(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("UploadFile - something went wrong", r)
+		}
+	}()
+
+	file, err := ec.FormFile("file")
+	if err != nil {
+		slog.Error("UploadFile - error binding request body", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		slog.Error("UploadFile - error opening file", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+	defer src.Close()
+
+	fileUpload := google.FileUpload{
+		Filename: file.Filename,
+		Size:     file.Size,
+	}
+
+	res, err := ox.SubModuleSvc.UploadFile(ctx, fileUpload, src)
+	if err != nil {
+		slog.Error("UploadFile - something went wrong", err)
 		return ec.JSON(res.Code, res)
 	}
 

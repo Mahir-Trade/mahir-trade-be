@@ -9,6 +9,7 @@ import (
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/pkg/middleware"
 	"math"
+	"mime/multipart"
 	"net/http"
 
 	"go.uber.org/dig"
@@ -49,6 +50,7 @@ type (
 
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64) (resp models.DefaultResponse, err error)
 		MarkSubModuleAsWatched(ctx context.Context, req MarkSubModuleAsWatchedRequest) (resp models.DefaultResponse, err error)
+		UploadFile(ctx context.Context, req google.FileUpload, src multipart.File) (resp models.DefaultResponse, err error)
 	}
 
 	SubModuleSvcImpl struct {
@@ -388,6 +390,31 @@ func (s *SubModuleSvcImpl) MarkSubModuleAsWatched(ctx context.Context, req MarkS
 		resp.Message = "Internal Server Error, Please try again later"
 		resp.Error = "Internal Server Error"
 		return
+	}
+
+	return
+}
+
+func (s *SubModuleSvcImpl) UploadFile(ctx context.Context, req google.FileUpload, src multipart.File) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "Success"
+	}
+
+	url, err := s.BucketRepo.UploadFile(ctx, req, src)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UploadFile] error while upload file err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error, Please try again later"
+		resp.Error = "Internal Server Error"
+
+		return
+	}
+
+	resp.Data = struct {
+		URL string `json:"url"`
+	}{
+		URL: url,
 	}
 
 	return

@@ -3,7 +3,9 @@ package google
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"time"
@@ -15,8 +17,15 @@ import (
 )
 
 type (
+	FileUpload struct {
+		Filename string `json:"filename"`
+		Size     int64  `json:"size"`
+		URL      string `json:"url"`
+	}
+
 	BucketRepo interface {
 		PresignedURL(ctx context.Context, privateUrl string) (url string, err error)
+		UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error)
 	}
 
 	BucketRepoImpl struct {
@@ -70,4 +79,37 @@ func (b *BucketRepoImpl) PresignedURL(ctx context.Context, privateUrl string) (u
 	}
 	return
 
+}
+
+func (b *BucketRepoImpl) UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error) {
+	bucketName := os.Getenv("GOOGLE_BUCKET_NAME")
+
+	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][UploadFile][NewClient]", err)
+		return
+	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			slog.ErrorContext(ctx, "[repo][google][UploadFile][Close]", err)
+		}
+	}()
+
+	bucket := client.Bucket(bucketName)
+	obj := bucket.Object(form.Filename)
+
+	wc := obj.NewWriter(ctx)
+	if _, err = io.Copy(wc, file); err != nil {
+		return url, fmt.Errorf("Failed to upload file: %v", err)
+	}
+	if err := wc.Close(); err != nil {
+		return url, fmt.Errorf("Failed to close writer: %v", err)
+	}
+
+	url, err = b.PresignedURL(ctx, form.Filename)
+	if err != nil {
+		return url, fmt.Errorf("Failed to generate presigned URL: %v", err)
+	}
+
+	return
 }

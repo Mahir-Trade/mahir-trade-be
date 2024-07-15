@@ -116,6 +116,8 @@ func setRoute(
 
 	}
 
+	base.POST("/upload", subModuleCtrl.UploadFile)
+
 	// Public route
 	{
 		base.POST("/payment-link-callback", paymentCtrl.PaymentLinkCallback)
