@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
+	"mahir-trade-be/internal/app/infra"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/dig"
 )
@@ -64,6 +66,8 @@ type (
 		SubModuleRepo     postgres.SubModuleRepo
 		BucketRepo        google.BucketRepo
 		UserSubModuleRepo postgres.UserSubModuleRepo
+
+		GoogleCfg *infra.GoogleCfg
 	}
 )
 
@@ -140,7 +144,7 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 		return
 	}
 
-	url, err := s.BucketRepo.PresignedURL(ctx, subModule.VideoURL)
+	url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
 		resp.Code = http.StatusInternalServerError
@@ -446,6 +450,12 @@ func (s *SubModuleSvcImpl) UploadFile(ctx context.Context, req google.FileUpload
 	contentType := mime.TypeByExtension(ext)
 	req.FileContentType = contentType
 	req.LocalFilePath = tempFile.Name()
+
+	if strings.Contains(contentType, "video") {
+		req.BucketName = s.GoogleCfg.VideoBucketName
+	} else {
+		req.BucketName = s.GoogleCfg.ImageBucketName
+	}
 
 	url, err := s.BucketRepo.UploadFile(ctx, req, src)
 	if err != nil {

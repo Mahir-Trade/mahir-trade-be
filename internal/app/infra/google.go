@@ -18,9 +18,12 @@ type (
 	}
 
 	GoogleCfg struct {
-		ClientID     string `envconfig:"GOOGLE_CLIENT_ID" required:"true"`
-		ClientSecret string `envconfig:"GOOGLE_CLIENT_SECRET" required:"true"`
-		RedirectURL  string `envconfig:"GOOGLE_REDIRECT_URL" required:"true"`
+		ClientID               string `envconfig:"GOOGLE_CLIENT_ID" required:"true"`
+		ClientSecret           string `envconfig:"GOOGLE_CLIENT_SECRET" required:"true"`
+		RedirectURL            string `envconfig:"GOOGLE_REDIRECT_URL" required:"true"`
+		ServiceAccountFilePath string `envconfig:"GOOGLE_SERVICE_ACCOUNT_FILE_PATH" required:"true"`
+		VideoBucketName        string `envconfig:"GOOGLE_VIDEO_BUCKET_NAME" required:"true"`
+		ImageBucketName        string `envconfig:"GOOGLE_IMAGE_BUCKET_NAME" required:"true"`
 	}
 )
 

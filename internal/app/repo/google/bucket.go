@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"mahir-trade-be/internal/app/infra"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -22,15 +23,18 @@ type (
 		Size            int64  `json:"size"`
 		LocalFilePath   string `json:"local_file_path"`
 		FileContentType string `json:"file_content_type"`
+		BucketName      string `json:"bucket_name"`
 	}
 
 	BucketRepo interface {
-		PresignedURL(ctx context.Context, privateUrl string) (url string, err error)
+		PresignedURL(ctx context.Context, bucketName, privateUrl string) (url string, err error)
 		UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error)
 	}
 
 	BucketRepoImpl struct {
 		dig.In
+
+		GoogleCfg *infra.GoogleCfg
 	}
 )
 
@@ -38,10 +42,9 @@ func NewBucketRepo(impl BucketRepoImpl) BucketRepo {
 	return &impl
 }
 
-func (b *BucketRepoImpl) PresignedURL(ctx context.Context, privateUrl string) (url string, err error) {
-	bucketName := os.Getenv("GOOGLE_BUCKET_NAME")
-	objectName := privateUrl[len("https://storage.cloud.google.com/mahir_trade_video/"):]
-	temporaryAccess := time.Now().Add(6 * time.Hour)
+func (b *BucketRepoImpl) PresignedURL(ctx context.Context, bucketName, privateUrl string) (url string, err error) {
+	objectName := privateUrl[len(fmt.Sprintf("https://storage.cloud.google.com/%s/", bucketName)):]
+	temporaryAccess := time.Now().Add(1 * time.Hour)
 
 	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
 	if err != nil {
@@ -82,23 +85,21 @@ func (b *BucketRepoImpl) PresignedURL(ctx context.Context, privateUrl string) (u
 }
 
 func (b *BucketRepoImpl) UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error) {
-	bucketName := os.Getenv("GOOGLE_BUCKET_NAME")
-
-	cmd := exec.Command("gsutil", "cp", form.LocalFilePath, fmt.Sprintf("gs://%s/%s", bucketName, form.Filename))
+	cmd := exec.Command("gsutil", "cp", form.LocalFilePath, fmt.Sprintf("gs://%s/%s", form.BucketName, form.Filename))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.ErrorContext(ctx, "[repo][google][UploadFile][CombinedOutput] err :", err)
 		return url, fmt.Errorf("failed to upload file to GCS: %v, output: %s", err, string(output))
 	}
 
-	cmdContentType := exec.Command("gsutil", "setmeta", "-h", fmt.Sprintf("Content-Type:%s", form.FileContentType), fmt.Sprintf("gs://%s/%s", bucketName, form.Filename))
+	cmdContentType := exec.Command("gsutil", "setmeta", "-h", fmt.Sprintf("Content-Type:%s", form.FileContentType), fmt.Sprintf("gs://%s/%s", form.BucketName, form.Filename))
 	outputContentType, err := cmdContentType.CombinedOutput()
 	if err != nil {
 		slog.ErrorContext(ctx, "[repo][google][UploadFile][Command] err :", err)
 		return url, fmt.Errorf("failed to set content type: %v, output: %s", err, string(outputContentType))
 	}
 
-	url, err = b.PresignedURL(ctx, fmt.Sprintf("https://storage.cloud.google.com/%s/%s", bucketName, form.Filename))
+	url, err = b.PresignedURL(ctx, form.BucketName, fmt.Sprintf("https://storage.cloud.google.com/%s/%s", form.BucketName, form.Filename))
 	if err != nil {
 		slog.ErrorContext(ctx, "[repo][google][UploadFile][PresignedURL]", err)
 		err = fmt.Errorf("something went wrong, we will fix it soon")
