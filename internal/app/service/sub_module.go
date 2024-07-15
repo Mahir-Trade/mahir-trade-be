@@ -3,13 +3,20 @@ package service
 import (
 	"context"
 	"database/sql"
+	"io"
 	"log/slog"
+	"mahir-trade-be/internal/app/infra"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/pkg/middleware"
 	"math"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"go.uber.org/dig"
 )
@@ -49,6 +56,7 @@ type (
 
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64) (resp models.DefaultResponse, err error)
 		MarkSubModuleAsWatched(ctx context.Context, req MarkSubModuleAsWatchedRequest) (resp models.DefaultResponse, err error)
+		UploadFile(ctx context.Context, req google.FileUpload, src multipart.File) (resp models.DefaultResponse, err error)
 	}
 
 	SubModuleSvcImpl struct {
@@ -58,6 +66,8 @@ type (
 		SubModuleRepo     postgres.SubModuleRepo
 		BucketRepo        google.BucketRepo
 		UserSubModuleRepo postgres.UserSubModuleRepo
+
+		GoogleCfg *infra.GoogleCfg
 	}
 )
 
@@ -133,8 +143,7 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 		resp.Error = "Internal Server Error"
 		return
 	}
-
-	url, err := s.BucketRepo.PresignedURL(ctx, subModule.VideoURL)
+	url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
 		resp.Code = http.StatusInternalServerError
@@ -388,6 +397,79 @@ func (s *SubModuleSvcImpl) MarkSubModuleAsWatched(ctx context.Context, req MarkS
 		resp.Message = "Internal Server Error, Please try again later"
 		resp.Error = "Internal Server Error"
 		return
+	}
+
+	return
+}
+
+func (s *SubModuleSvcImpl) UploadFile(ctx context.Context, req google.FileUpload, src multipart.File) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "Success"
+	}
+
+	tempDir := "./temp"
+	if _, err = os.Stat(tempDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(tempDir, 0755); err != nil {
+			slog.ErrorContext(ctx, "[service][UploadFile] error while MkdirAll err: %v", err)
+			resp.Code = http.StatusInternalServerError
+			resp.Message = "Unable to create temporary file"
+			resp.Error = err.Error()
+
+			return
+		}
+	}
+
+	tempFile, err := os.CreateTemp("./temp", "upload-*.tmp")
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UploadFile] error while CreateTemp err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Unable to create temporary file"
+		resp.Error = err.Error()
+
+		return
+	}
+	defer func() {
+		tempFile.Close()
+		if err := os.Remove(tempFile.Name()); err != nil {
+			slog.ErrorContext(ctx, "[service][UploadFile] Failed to remove temporary file %s: %v", tempFile.Name(), err)
+		}
+	}()
+
+	if _, err = io.Copy(tempFile, src); err != nil {
+		slog.ErrorContext(ctx, "[service][UploadFile] error while Copy err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Unable to save temporary file"
+		resp.Error = err.Error()
+
+		return
+	}
+
+	ext := filepath.Ext(req.Filename)
+	contentType := mime.TypeByExtension(ext)
+	req.FileContentType = contentType
+	req.LocalFilePath = tempFile.Name()
+
+	if strings.Contains(contentType, "video") {
+		req.BucketName = s.GoogleCfg.VideoBucketName
+	} else {
+		req.BucketName = s.GoogleCfg.ImageBucketName
+	}
+
+	url, err := s.BucketRepo.UploadFile(ctx, req, src)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UploadFile] error while upload file err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error, Please try again later"
+		resp.Error = "Internal Server Error"
+
+		return
+	}
+
+	resp.Data = struct {
+		URL string `json:"url"`
+	}{
+		URL: url,
 	}
 
 	return
