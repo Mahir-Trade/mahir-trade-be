@@ -85,4 +85,26 @@ const (
 			updated_by = $1
 		WHERE group_id = $2
 	`
+
+	QueryGetPercentageModulesUser = `
+	SELECT
+    $1 AS user_id,
+    $2 AS module_id,
+    CASE
+        WHEN COUNT(sm.id) = 0 THEN 0
+        ELSE (COUNT(usm.id)::decimal / COUNT(sm.id)) * 100
+    END AS completion_percentage
+	FROM
+		modules m
+	LEFT JOIN
+		sub_modules sm ON m.id = sm.module_id
+	LEFT JOIN
+		user_sub_modules usm ON sm.id = usm.sub_module_id AND usm.user_id = $3
+	WHERE
+		m.id = $4
+	GROUP BY
+		m.id
+	ORDER BY
+		m.id;
+	 `
 )

@@ -78,6 +78,7 @@ func setRoute(
 		modules.POST("", moduleCtrl.CreateModule, middleware.AuthAdminOrUser("admin"))
 		modules.PATCH("/:module_id", moduleCtrl.UpdateModule, middleware.AuthAdminOrUser("admin"))
 		modules.DELETE("/:module_id", moduleCtrl.DeleteModule, middleware.AuthAdminOrUser("admin"))
+		modules.GET("/user/:module_id", moduleCtrl.GetPercetangeMarkWatchedModulesUser, middleware.AuthAdminOrUser("user"))
 	}
 
 	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"))

@@ -45,6 +45,7 @@ type (
 		GetModulesByGroupID(ctx context.Context, groupID int64) (resp models.DefaultResponse, err error)
 		UpdateModule(ctx context.Context, moduleID int64, req ModuleRequest) (resp models.DefaultResponse, err error)
 		DeleteModule(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error)
+		GetPercentageMarkWatchedModulesUser(ctx context.Context, moduleId int64) (resp models.DefaultResponse, err error)
 	}
 
 	ModuleSvcImpl struct {
@@ -420,6 +421,39 @@ func (m *ModuleSvcImpl) DeleteModule(ctx context.Context, moduleID int64) (resp 
 		resp.Message = "internal server error, we will fix it soon"
 		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
 		return
+	}
+
+	return
+}
+
+func (m *ModuleSvcImpl) GetPercentageMarkWatchedModulesUser(ctx context.Context, moduleId int64) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "Success"
+		resp.Data = struct{}{}
+	}
+
+	userData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
+
+	percentage, err := m.ModuleRepo.GetPercentageMarkWatchedModulesUser(ctx, userData.UserID, moduleId)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetPercentageMarkWatchedModulesUser] error while GetPercentageMarkWatchedModulesUser err", "%v", err.Error())
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error, we will fix it soon"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
+
+	resp.Data = struct {
+		Percentage float64 `json:"percentage"`
+	}{
+		Percentage: percentage,
 	}
 
 	return
