@@ -53,6 +53,8 @@ services:
       PG_DBUSER: MahirTrade
       PG_DBPASS: MahirTrade123-
       PG_DBNAME: mahir-trade
+    volumes:
+      - ./service_account.json:/app/service_account.json
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mahir-trade-be.rule=Host(`api.mahirtrade.com`)"
