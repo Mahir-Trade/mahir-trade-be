@@ -3,14 +3,18 @@ package service
 import (
 	"context"
 	"database/sql"
+	"io"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/pkg/middleware"
 	"math"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"go.uber.org/dig"
 )
@@ -400,6 +404,48 @@ func (s *SubModuleSvcImpl) UploadFile(ctx context.Context, req google.FileUpload
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
 	}
+
+	tempDir := "./temp"
+	if _, err = os.Stat(tempDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(tempDir, 0755); err != nil {
+			slog.ErrorContext(ctx, "[service][UploadFile] error while MkdirAll err: %v", err)
+			resp.Code = http.StatusInternalServerError
+			resp.Message = "Unable to create temporary file"
+			resp.Error = err.Error()
+
+			return
+		}
+	}
+
+	tempFile, err := os.CreateTemp("./temp", "upload-*.tmp")
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UploadFile] error while CreateTemp err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Unable to create temporary file"
+		resp.Error = err.Error()
+
+		return
+	}
+	defer func() {
+		tempFile.Close()
+		if err := os.Remove(tempFile.Name()); err != nil {
+			slog.ErrorContext(ctx, "[service][UploadFile] Failed to remove temporary file %s: %v", tempFile.Name(), err)
+		}
+	}()
+
+	if _, err = io.Copy(tempFile, src); err != nil {
+		slog.ErrorContext(ctx, "[service][UploadFile] error while Copy err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Unable to save temporary file"
+		resp.Error = err.Error()
+
+		return
+	}
+
+	ext := filepath.Ext(req.Filename)
+	contentType := mime.TypeByExtension(ext)
+	req.FileContentType = contentType
+	req.LocalFilePath = tempFile.Name()
 
 	url, err := s.BucketRepo.UploadFile(ctx, req, src)
 	if err != nil {

@@ -3,11 +3,11 @@ package google
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -18,9 +18,10 @@ import (
 
 type (
 	FileUpload struct {
-		Filename string `json:"filename"`
-		Size     int64  `json:"size"`
-		URL      string `json:"url"`
+		Filename        string `json:"filename"`
+		Size            int64  `json:"size"`
+		LocalFilePath   string `json:"local_file_path"`
+		FileContentType string `json:"file_content_type"`
 	}
 
 	BucketRepo interface {
@@ -78,37 +79,30 @@ func (b *BucketRepoImpl) PresignedURL(ctx context.Context, privateUrl string) (u
 		return
 	}
 	return
-
 }
 
 func (b *BucketRepoImpl) UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error) {
 	bucketName := os.Getenv("GOOGLE_BUCKET_NAME")
 
-	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
+	cmd := exec.Command("gsutil", "cp", form.LocalFilePath, fmt.Sprintf("gs://%s/%s", bucketName, form.Filename))
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		slog.ErrorContext(ctx, "[repo][google][UploadFile][NewClient]", err)
+		slog.ErrorContext(ctx, "[repo][google][UploadFile][CombinedOutput] err :", err)
+		return url, fmt.Errorf("failed to upload file to GCS: %v, output: %s", err, string(output))
+	}
+
+	cmdContentType := exec.Command("gsutil", "setmeta", "-h", fmt.Sprintf("Content-Type:%s", form.FileContentType), fmt.Sprintf("gs://%s/%s", bucketName, form.Filename))
+	outputContentType, err := cmdContentType.CombinedOutput()
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][UploadFile][Command] err :", err)
+		return url, fmt.Errorf("failed to set content type: %v, output: %s", err, string(outputContentType))
+	}
+
+	url, err = b.PresignedURL(ctx, fmt.Sprintf("https://storage.cloud.google.com/%s/%s", bucketName, form.Filename))
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][UploadFile][PresignedURL]", err)
+		err = fmt.Errorf("something went wrong, we will fix it soon")
 		return
-	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			slog.ErrorContext(ctx, "[repo][google][UploadFile][Close]", err)
-		}
-	}()
-
-	bucket := client.Bucket(bucketName)
-	obj := bucket.Object(form.Filename)
-
-	wc := obj.NewWriter(ctx)
-	if _, err = io.Copy(wc, file); err != nil {
-		return url, fmt.Errorf("Failed to upload file: %v", err)
-	}
-	if err := wc.Close(); err != nil {
-		return url, fmt.Errorf("Failed to close writer: %v", err)
-	}
-
-	url, err = b.PresignedURL(ctx, form.Filename)
-	if err != nil {
-		return url, fmt.Errorf("Failed to generate presigned URL: %v", err)
 	}
 
 	return
