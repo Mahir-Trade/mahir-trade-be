@@ -7,6 +7,7 @@ import (
 	"mahir-trade-be/internal/app/infra"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"time"
@@ -42,8 +43,22 @@ func NewBucketRepo(impl BucketRepoImpl) BucketRepo {
 	return &impl
 }
 
-func (b *BucketRepoImpl) PresignedURL(ctx context.Context, bucketName, privateUrl string) (url string, err error) {
-	objectName := privateUrl[len(fmt.Sprintf("https://storage.cloud.google.com/%s/", bucketName)):]
+func (b *BucketRepoImpl) PresignedURL(ctx context.Context, bucketName, privateUrl string) (signedUrl string, err error) {
+
+	urlParsed, err := url.Parse(privateUrl)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while parse url err: %v", err)
+		return
+	}
+
+	decodePath := urlParsed.Path
+	if decodePath, err = url.QueryUnescape(decodePath); err != nil {
+		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while decode url err: %v", err)
+		return
+	}
+	cleanUrl := urlParsed.Scheme + "://" + urlParsed.Host + decodePath
+
+	objectName := cleanUrl[len(fmt.Sprintf("https://storage.cloud.google.com/%s/", bucketName)):]
 	temporaryAccess := time.Now().Add(1 * time.Hour)
 
 	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
@@ -76,7 +91,7 @@ func (b *BucketRepoImpl) PresignedURL(ctx context.Context, bucketName, privateUr
 		Expires:        temporaryAccess,
 	}
 
-	url, err = storage.SignedURL(bucketName, objectName, &opts)
+	signedUrl, err = storage.SignedURL(bucketName, objectName, &opts)
 	if err != nil {
 		slog.ErrorContext(ctx, "[repo][google][PresignedURL][SignedURL]", err)
 		return

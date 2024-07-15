@@ -143,7 +143,6 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 		resp.Error = "Internal Server Error"
 		return
 	}
-
 	url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
