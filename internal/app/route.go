@@ -117,7 +117,7 @@ func setRoute(
 
 	}
 
-	base.POST("/upload", subModuleCtrl.UploadFile)
+	base.POST("/upload", subModuleCtrl.UploadFile, middleware.AuthAdminOrUser("admin"))
 
 	// Public route
 	{
