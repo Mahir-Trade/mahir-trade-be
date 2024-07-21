@@ -25,9 +25,6 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY service_account.json /app/service_account.json
-RUN /google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=/app/service_account.json
-
 RUN adduser --disabled-login --gecos '' appuser
 
 RUN mkdir -p /app/temp && chown appuser:appuser /app/temp
@@ -42,5 +39,8 @@ WORKDIR /app
 EXPOSE 8080
 
 ENV PATH="/google-cloud-sdk/bin:$PATH"
+
+COPY service_account.json /app/service_account.json
+RUN gcloud auth activate-service-account --key-file=/app/service_account.json
 
 ENTRYPOINT ["/app/mahir-trade-be", "-env", "/app/.env"]
