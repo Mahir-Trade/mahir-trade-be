@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/pkg/middleware"
 	"math"
 	"net/http"
 
@@ -25,7 +26,8 @@ type (
 	GroupSvcImpl struct {
 		dig.In
 
-		GroupRepo postgres.GroupRepo
+		GroupRepo  postgres.GroupRepo
+		ModuleRepo postgres.ModuleRepo
 	}
 )
 
@@ -172,11 +174,13 @@ func (g *GroupSvcImpl) DeleteGroup(ctx context.Context, groupId int64) (resp mod
 		resp.Message = "Success"
 	}
 
-	// if groupId == 0 {
-	// 	errMsg := errors.New("group id is required")
-	// 	slog.ErrorContext(ctx, fmt.Sprintf("[service][DeleteGroup] err : %v", errMsg.Error()))
-	// 	return errMsg
-	// }
+	adminData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = errors.New("something went wrong, we will fix it soon").Error()
+		return
+	}
 
 	group, err := g.GroupRepo.GetGroupByID(ctx, groupId)
 	if err != nil {
@@ -199,12 +203,22 @@ func (g *GroupSvcImpl) DeleteGroup(ctx context.Context, groupId int64) (resp mod
 		return resp, errors.New(errMsg)
 	}
 
-	err = g.GroupRepo.SoftDeleteGroup(ctx, groupId, "SYSTEM")
+	err = g.GroupRepo.SoftDeleteGroup(ctx, groupId, adminData.Username)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
 		resp.Message = "bad request"
 		resp.Error = err
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][DeleteGroup] while DeleteGroup err : %v", err))
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][DeleteGroup] while SoftDeleteGroup err : %v", err))
+
+		return resp, err
+	}
+
+	err = g.ModuleRepo.RemoveGroupIDFromModules(ctx, groupId, adminData.Username)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = err
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][DeleteGroup] while RemoveGroupIDFromModules err : %v", err))
 
 		return resp, err
 	}

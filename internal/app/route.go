@@ -1,12 +1,10 @@
 package app
 
 import (
-	"log/slog"
 	"mahir-trade-be/internal/app/controller"
 	"mahir-trade-be/pkg/middleware"
 	"net/http"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 )
 
@@ -15,6 +13,14 @@ func setRoute(
 
 	authCtrl controller.AuthCtrl,
 	groupCtrl controller.GroupCtrl,
+	moduleCtrl controller.ModuleCtrlImpl,
+	adminCtrl controller.AdminCtrl,
+	middleware middleware.MiddleWare,
+	packageCtrl controller.PackageCtrl,
+	subModuleCtrl controller.SubModuleCtrl,
+	reportCtrl controller.ReportCtrl,
+	paymentCtrl controller.PaymentCtrl,
+	cronCtrl controller.SchedulerCtrl,
 ) {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
@@ -28,39 +34,95 @@ func setRoute(
 		users.POST("/login", authCtrl.UserLogin)
 		users.GET("/login/google", authCtrl.LoginWithGoogle)
 		users.GET("/login/google/callback", authCtrl.CallbackGoogle)
+
+		// Dashboard
+		users.GET("/detail", authCtrl.GetDetailUser, middleware.AuthAdminOrUser("user"))
 	}
 
-	groups := base.Group("/groups")
+	groups := base.Group("/groups", middleware.AuthAdminOrUser("admin", "user"))
 	{
-		groups.POST("", groupCtrl.CreateGroup)
-		groups.GET("/:id", groupCtrl.GetGroupByID)
 		groups.GET("", groupCtrl.GetGroups)
-		groups.PUT("/:id", groupCtrl.UpdateGroup)
-		groups.DELETE("/:id", groupCtrl.DeleteGroup)
+		groups.GET("/:id", groupCtrl.GetGroupByID)
+
+		groups.POST("", groupCtrl.CreateGroup, middleware.AuthAdminOrUser("admin"))
+		groups.PUT("/:id", groupCtrl.UpdateGroup, middleware.AuthAdminOrUser("admin"))
+		groups.DELETE("/:id", groupCtrl.DeleteGroup, middleware.AuthAdminOrUser("admin"))
 	}
 
 	discord := base.Group("/discord")
 	{
-		discord.POST("/assign-role", middleware.AuthMiddleware(authCtrl.AssignRoleDiscordToUser))
+		// discord callback
+		discord.GET("/account", authCtrl.InviteDiscordUserToGuild)
+		discord.GET("/account/add-role", authCtrl.ConnectDiscordAccountAndAssignRole)
+		discord.GET("/account/remove-role", authCtrl.ConnectDiscordAccountAndRemoveRole)
 
-		discord.POST("/remove-role", middleware.AuthMiddleware(authCtrl.RemoveRoleDiscordUser))
+		// internal
+		discord.POST("/connect-role", authCtrl.AssignRoleDiscordToUser, middleware.AuthAdminOrUser("user"))
+		discord.POST("/remove-role", authCtrl.RemoveRoleDiscordUser, middleware.AuthAdminOrUser("user"))
+	}
 
-		// add endpoint to get user discord
-		discord.GET("/user", func(c echo.Context) error {
-			session, err := discordgo.New("Bot " + "MTIzNTk5NzI1OTg4ODU5MDkxOA.GwqhuY.3MtFKt5OdaBRNOxxemxvAd7x6nXjNor5i-IovM")
-			if err != nil {
-				slog.Error("Error creating Discord session: ", err)
-				return err
-			}
-			defer session.Close()
+	packageRoute := base.Group("/packages", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		packageRoute.GET("/:id", packageCtrl.GetPackageByID)
+		packageRoute.GET("", packageCtrl.GetPackages)
+		packageRoute.POST("", packageCtrl.CreatePackage, middleware.AuthAdminOrUser("admin"))
+		packageRoute.PUT("/:id", packageCtrl.UpdatePackage, middleware.AuthAdminOrUser("admin"))
+		packageRoute.DELETE("/:id", packageCtrl.DeletePackage, middleware.AuthAdminOrUser("admin"))
+	}
 
-			users, err := session.GuildMembersSearch("688746990196228256", "a", 1)
-			if err != nil {
-				slog.Error("Error getting guild members: ", err)
-				return err
-			}
+	modules := base.Group("/modules", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		modules.GET("", moduleCtrl.GetModules)
+		modules.GET("/:module_id", moduleCtrl.GetModuleByID)
+		modules.GET("/group/:group_id", moduleCtrl.GetModulesByGroupID)
+		modules.POST("", moduleCtrl.CreateModule, middleware.AuthAdminOrUser("admin"))
+		modules.PATCH("/:module_id", moduleCtrl.UpdateModule, middleware.AuthAdminOrUser("admin"))
+		modules.DELETE("/:module_id", moduleCtrl.DeleteModule, middleware.AuthAdminOrUser("admin"))
+		modules.GET("/user/:module_id", moduleCtrl.GetPercetangeMarkWatchedModulesUser, middleware.AuthAdminOrUser("user"))
+	}
 
-			return c.JSON(http.StatusOK, users)
-		})
+	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		subModules.GET("/:sub_module_id", subModuleCtrl.GetSubModuleByID)
+		subModules.GET("", subModuleCtrl.GetSubModules)
+		subModules.GET("/module/:module_id", subModuleCtrl.GetSubModulesByModuleID)
+		subModules.POST("", subModuleCtrl.CreateSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.PATCH("/:sub_module_id", subModuleCtrl.UpdateSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.DELETE("/:sub_module_id", subModuleCtrl.SoftDeleteSubModule, middleware.AuthAdminOrUser("admin"))
+		subModules.POST("/mark-watched", subModuleCtrl.MarkSubModuleAsWatched)
+	}
+
+	admins := base.Group("/admins")
+	{
+		admins.POST("/register", adminCtrl.AdminRegistration)
+		admins.POST("/login", adminCtrl.AdminLogin)
+
+		admins.GET("/detail", adminCtrl.GetDetailAdminInfo, middleware.AuthAdminOrUser("admin"))
+		admins.GET("/user-detail/:user_id", adminCtrl.GetDetailUserForBO, middleware.AuthAdminOrUser("admin"))
+		admins.GET("/users", adminCtrl.GetAllUsers, middleware.AuthAdminOrUser("admin"))
+	}
+
+	report := base.Group("/reports", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		report.GET("/:id", reportCtrl.GetReportByID)
+		report.GET("", reportCtrl.GetReports)
+		report.POST("", reportCtrl.CreateReport, middleware.AuthAdminOrUser("admin"))
+		report.PUT("/:id", reportCtrl.UpdateReport, middleware.AuthAdminOrUser("admin"))
+		report.DELETE("/:id", reportCtrl.DeleteReport, middleware.AuthAdminOrUser("admin"))
+	}
+
+	order := base.Group("/orders", middleware.AuthAdminOrUser("admin", "user"))
+	{
+		order.POST("/create", paymentCtrl.CreatePayment, middleware.AuthAdminOrUser("user"))
+
+	}
+
+	base.POST("/upload", subModuleCtrl.UploadFile, middleware.AuthAdminOrUser("admin"))
+
+	// Public route
+	{
+		base.POST("/payment-link-callback", paymentCtrl.PaymentLinkCallback)
+		base.GET("/cron", paymentCtrl.PaymentLinkCallback)
+		base.GET("/package-list", packageCtrl.GetPackages)
 	}
 }

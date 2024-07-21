@@ -1,13 +1,12 @@
 package controller
 
 import (
-	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
-	"mahir-trade-be/internal/app/repo/discord"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
+	"os"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -21,13 +20,6 @@ type (
 		Error      any    `json:"error,omitempty"`
 	}
 
-	Resp struct {
-		Code       int    `json:"code"`
-		Message    string `json:"message,omitempty"`
-		Data       any    `json:"data,omitempty"`
-		ErrMessage string `json:"error_message,omitempty"`
-	}
-
 	AuthCtrl interface {
 		UserRegistration(ec echo.Context) error
 		UserLogin(ec echo.Context) error
@@ -35,6 +27,10 @@ type (
 		CallbackGoogle(ec echo.Context) error
 		AssignRoleDiscordToUser(ec echo.Context) error
 		RemoveRoleDiscordUser(ec echo.Context) error
+		InviteDiscordUserToGuild(ec echo.Context) error
+		ConnectDiscordAccountAndAssignRole(ec echo.Context) error
+		ConnectDiscordAccountAndRemoveRole(ec echo.Context) error
+		GetDetailUser(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -57,13 +53,14 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 		}
 	}()
 
-	var user models.User
+	var user models.UserRegistrationRequest
 
 	if err := ec.Bind(&user); err != nil {
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "Invalid request body",
-			English:    "Invalid request body",
-			Error:      err.Error(),
+		slog.Error("UserRegistration - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: utils.ErrorInvalidRequestBody,
+			Error:   err.Error(),
 		})
 	}
 
@@ -72,23 +69,21 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 	err := validate.Struct(user)
 	if err != nil {
 		errors := err.(validator.ValidationErrors)
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "Invalid request body",
-			English:    "invalid request body",
-			Error:      errors.Error(),
+		slog.Error("UserRegistration - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: utils.ErrorInvalidRequestBody,
+			Error:   errors.Error(),
 		})
 	}
 
-	err = ox.UserSvc.UserRegistration(ctx, user)
+	resp, err := ox.UserSvc.UserRegistration(ctx, user)
 	if err != nil {
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "bad request",
-			English:    "bad request",
-			Error:      err.Error(),
-		})
+		slog.Error("UserRegistration - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, resp)
 	}
 
-	return ec.JSON(http.StatusOK, Resp{Code: http.StatusCreated, Message: "successfully registered"})
+	return ec.JSON(http.StatusOK, resp)
 }
 
 func (ox *AuthCtrlImpl) UserLogin(ec echo.Context) error {
@@ -142,18 +137,8 @@ func (ox *AuthCtrlImpl) AssignRoleDiscordToUser(ec echo.Context) error {
 		}
 	}()
 
-	userUUID := ec.Get("user_id").(string)
-
-	var discordReq discord.GetDiscordUserRequest
-	if err := ec.Bind(&discordReq); err != nil {
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request body",
-			Error:   err.Error(),
-		})
-	}
-
-	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, userUUID, discordReq.Username)
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.AssignRoleDiscordToUser(ctx, code)
 	if err != nil {
 		slog.Error("AssignRoleDiscordToUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
@@ -171,20 +156,67 @@ func (ox *AuthCtrlImpl) RemoveRoleDiscordUser(ec echo.Context) error {
 		}
 	}()
 
-	userUUID := ec.Get("user_id").(string)
-
-	var discordReq discord.GetDiscordUserRequest
-	if err := ec.Bind(&discordReq); err != nil {
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request body",
-			Error:   err.Error(),
-		})
-	}
-
-	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx, userUUID, discordReq.Username)
+	res, err := ox.UserSvc.RemoveRoleDiscordToUser(ctx)
 	if err != nil {
 		slog.Error("RemoveRoleDiscordUser - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) InviteDiscordUserToGuild(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccount - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	redirectURI := os.Getenv("DISCORD_REDIRECT_URI")
+	res, err := ox.UserSvc.InviteDiscordUserToGuild(ctx, code, redirectURI)
+	if err != nil {
+		slog.Error("ConnectDiscordAccount - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ConnectDiscordAccountAndAssignRole(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccountAndAssignRole - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.ConnectDiscordAccountAndAssignRole(ctx, code)
+	if err != nil {
+		slog.Error("ConnectDiscordAccountAndAssignRole - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ConnectDiscordAccountAndRemoveRole(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ConnectDiscordAccountAndRemoveRole - something went wrong", r)
+		}
+	}()
+
+	code := ec.QueryParam("code")
+	res, err := ox.UserSvc.ConnectDiscordAccountAndRemoveRole(ctx, code)
+	if err != nil {
+		slog.Error("ConnectDiscordAccountAndRemoveRole - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 
@@ -209,8 +241,6 @@ func (ox *AuthCtrlImpl) LoginWithGoogle(ec echo.Context) error {
 			Error:   err.Error(),
 		})
 	}
-
-	fmt.Println(url)
 
 	return ec.Redirect(http.StatusTemporaryRedirect, url)
 }
@@ -254,6 +284,24 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 	res, err := ox.UserSvc.CallbackGoogle(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
+		return ec.JSON(res.Code, res)
+	}
+
+	return ec.JSON(res.Code, res)
+}
+
+func (ox *AuthCtrlImpl) GetDetailUser(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetDetailUser - something went wrong", r)
+		}
+	}()
+
+	res, err := ox.UserSvc.GetDetailUser(ctx)
+	if err != nil {
+		slog.Error("GetDetailUser - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

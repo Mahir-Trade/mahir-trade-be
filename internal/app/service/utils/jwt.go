@@ -15,13 +15,13 @@ type (
 	}
 )
 
-func Sign(data any) (signatureJWT string, exp int64, err error) {
+func Sign(data any) (signatureJWT string, exp time.Time, err error) {
 	secret := []byte(os.Getenv("JWT_SECRET_KEY"))
 	bt, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
-	exp = time.Now().Add(7 * 24 * time.Hour).Unix() // * 7 days
+	exp = time.Now().Add(7 * 24 * time.Hour) // * 7 days
 	encryptedData, err := EncryptAES256CBC(string(bt), os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
 	if err != nil {
 		return
@@ -30,7 +30,7 @@ func Sign(data any) (signatureJWT string, exp int64, err error) {
 		encryptedData,
 		jwt.StandardClaims{
 			Issuer:    os.Getenv("JWT_ISSUER"),
-			ExpiresAt: exp,
+			ExpiresAt: exp.Unix(),
 		},
 	}
 	signatureJWT, err = jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(secret)
