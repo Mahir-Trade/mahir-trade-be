@@ -123,5 +123,6 @@ func setRoute(
 	{
 		base.POST("/payment-link-callback", paymentCtrl.PaymentLinkCallback)
 		base.GET("/cron", paymentCtrl.PaymentLinkCallback)
+		base.GET("/package-list", packageCtrl.GetPackages)
 	}
 }

@@ -229,6 +229,25 @@ func (u *UserSvcImpl) AssignRoleDiscordToUser(ctx context.Context, code string) 
 		return
 	}
 
+	discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, userData.UserID)
+	if err != nil {
+		resp.Code = http.StatusNotFound
+		resp.Message = "something went wrong"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][GetDiscordAccountByUserID] err : %v", err))
+
+		return
+	}
+
+	if discordAccount.ID != 0 {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "discord account already registered"
+		resp.Error = errors.New("discord account already registered").Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][AssignRoleDiscordToUser][GetDiscordAccountByUserID] err: %v, userID: %d", resp.Error, userData.UserID))
+
+		return
+	}
+
 	addRoleDiscordReq := discord.DiscordRoleRequest{UserID: resp.Data.(discord.DiscordUser).ID}
 	err = u.DiscordRepo.AddRoleToMember(addRoleDiscordReq)
 	if err != nil {
@@ -274,7 +293,7 @@ func (u *UserSvcImpl) RemoveRoleDiscordToUser(ctx context.Context) (resp models.
 	}
 
 	discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, int64(userData.UserID))
-	if err != nil {
+	if err != nil || discordAccount.ID == 0 {
 		resp.Code = http.StatusNotFound
 		resp.Message = "discord account not found"
 		resp.Error = err.Error()
@@ -332,8 +351,9 @@ func (u *UserSvcImpl) InviteDiscordUserToGuild(ctx context.Context, code, redire
 	if tokenResp.Error != "" {
 		resp.Code = http.StatusBadRequest
 		resp.Message = tokenResp.Error
-		resp.Error = tokenResp.ErrorDescription
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][ExchangeCodeForToken] err : %v", err))
+		resp.Error = errors.New(tokenResp.ErrorDescription).Error()
+		err = errors.New(tokenResp.ErrorDescription)
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ConnectDiscordAccount][ExchangeCodeForToken] err : %v", tokenResp.ErrorDescription))
 
 		return resp, err
 	}
@@ -653,6 +673,16 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		return
 	}
 
+	discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, int64(userData.UserID))
+	if err != nil {
+		resp.Code = http.StatusNotFound
+		resp.Message = "discord account not found"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUser][GetDiscordAccountByUserID] err : %v", err))
+
+		return
+	}
+
 	userDetailResp = models.UserDetailResponse{
 		UserID:      user.UserID,
 		UUID:        user.UUID,
@@ -666,6 +696,10 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		userDetailResp.IsMembershipActive = false
 	} else {
 		userDetailResp.IsMembershipActive = true
+	}
+
+	if discordAccount.ID > 0 {
+		userDetailResp.DiscordUsername = discordAccount.Username
 	}
 
 	resp.Data = userDetailResp
