@@ -3,7 +3,7 @@ package queries
 const (
 	QueryCreateSubModule                = `INSERT INTO sub_modules (module_id, sub_module_name, title, video_url, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id`
 	QueryCreateSubModuleWithoutModuleID = `INSERT INTO sub_modules (sub_module_name, title, video_url, created_by) VALUES ($1, $2, $3, $4) RETURNING id`
-	QueryGetSubModules                  = `SELECT id, uuid, module_id, sub_module_name, title, video_url, created_by, updated_by, created_at, updated_at FROM sub_modules WHERE deleted_at IS NULL LIMIT $1 OFFSET $2`
+	QueryGetSubModules                  = `SELECT COUNT(id) OVER(), id, uuid, module_id, sub_module_name, title, video_url, created_by, updated_by, created_at, updated_at FROM sub_modules WHERE deleted_at IS NULL LIMIT $1 OFFSET $2`
 
 	QueryGetSubModuleByID = `SELECT id, uuid, module_id, sub_module_name, title, video_url, created_by, updated_by, created_at, updated_at FROM sub_modules WHERE id = $1 AND deleted_at IS NULL`
 
