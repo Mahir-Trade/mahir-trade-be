@@ -75,7 +75,7 @@ func (s *SubModuleRepoImpl) GetSubModules(ctx context.Context, req models.Pagina
 
 	for rows.Next() {
 		var subModule models.SubModule
-		err = rows.Scan(&subModule.ID, &subModule.UUID, &subModule.ModuleID, &subModule.SubModuleName, &subModule.Title, &subModule.VideoURL, &subModule.CreatedBy, &subModule.UpdatedBy, &subModule.CreatedAt, &subModule.UpdatedAt)
+		err = rows.Scan(&totalCount, &subModule.ID, &subModule.UUID, &subModule.ModuleID, &subModule.SubModuleName, &subModule.Title, &subModule.VideoURL, &subModule.CreatedBy, &subModule.UpdatedBy, &subModule.CreatedAt, &subModule.UpdatedAt)
 		if err != nil {
 			return subModules, totalCount, err
 		}
