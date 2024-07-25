@@ -37,6 +37,7 @@ type (
 		SubModuleName string `json:"sub_module_name"`
 		Title         string `json:"title"`
 		VideoURL      string `json:"video_url"`
+		Status        string `json:"status,omitempty"`
 		CreatedBy     string `json:"created_by"`
 		UpdatedBy     string `json:"updated_by"`
 		CreatedAt     string `json:"created_at,omitempty"`
@@ -307,7 +308,8 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 		resp.Data = struct{}{}
 	}
 
-	subModules, err := s.SubModuleRepo.GetSubModulesByModuleID(ctx, moduleID)
+	userID := ctx.Value(middleware.UserData).(middleware.UserCtxReq).UserID
+	subModules, err := s.SubModuleRepo.GetSubModulesByModuleID(ctx, moduleID, userID)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModulesByModuleID] error while get sub modules by module id err: %v", err)
 		resp.Code = http.StatusNotFound
@@ -323,6 +325,7 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 			SubModuleName: subModule.SubModuleName,
 			Title:         subModule.Title,
 			VideoURL:      subModule.VideoURL,
+			Status:        subModule.Status,
 			CreatedBy:     subModule.CreatedBy,
 			UpdatedBy:     subModule.UpdatedBy,
 			CreatedAt:     subModule.CreatedAt,

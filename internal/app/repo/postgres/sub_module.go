@@ -15,7 +15,7 @@ type (
 	SubModuleRepo interface {
 		CreateSubModule(ctx context.Context, req models.SubModule) (id int, err error)
 		GetSubModuleByID(ctx context.Context, id int64) (subModule models.SubModule, err error)
-		GetSubModulesByModuleID(ctx context.Context, moduleID int64) (subModules []models.SubModule, err error)
+		GetSubModulesByModuleID(ctx context.Context, moduleID, userID int64) (subModules []models.SubModule, err error)
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (subModules []models.SubModule, totalCount int64, err error)
 		UpdateSubModule(ctx context.Context, req models.SubModule) (err error)
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64, operator string) (err error)
@@ -86,8 +86,8 @@ func (s *SubModuleRepoImpl) GetSubModules(ctx context.Context, req models.Pagina
 	return subModules, totalCount, nil
 }
 
-func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleID int64) (subModules []models.SubModule, err error) {
-	rows, err := s.QueryContext(ctx, queries.QueryGetSubModuleByModuleID, moduleID)
+func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleID, userID int64) (subModules []models.SubModule, err error) {
+	rows, err := s.QueryContext(ctx, queries.QueryGetSubModuleByModuleID, moduleID, userID)
 	if err != nil {
 		slog.ErrorContext(ctx, "[subModuleRepoImpl][GetSubModulesByModuleID] error while QueryContext", "%v", err.Error())
 		err = fmt.Errorf("internal server error")
@@ -98,7 +98,7 @@ func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleI
 
 	for rows.Next() {
 		var subModule models.SubModule
-		err = rows.Scan(&subModule.ID, &subModule.UUID, &subModule.ModuleID, &subModule.SubModuleName, &subModule.Title, &subModule.VideoURL, &subModule.CreatedBy, &subModule.UpdatedBy, &subModule.CreatedAt, &subModule.UpdatedAt)
+		err = rows.Scan(&subModule.ID, &subModule.UUID, &subModule.ModuleID, &subModule.SubModuleName, &subModule.Title, &subModule.VideoURL, &subModule.CreatedBy, &subModule.UpdatedBy, &subModule.CreatedAt, &subModule.UpdatedAt, &subModule.Status)
 		if err != nil {
 			slog.ErrorContext(ctx, "[subModuleRepoImpl][GetSubModulesByModuleID] error while rows.Scan", "%v", err.Error())
 			err = fmt.Errorf("data not match")

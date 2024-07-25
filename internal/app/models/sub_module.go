@@ -10,6 +10,7 @@ type (
 		SubModuleName string        `json:"sub_module_name" validate:"required"`
 		Title         string        `json:"title" validate:"required"`
 		VideoURL      string        `json:"video_url" validate:"required"`
+		Status        string        `json:"status,omitempty"`
 		CreatedBy     string        `json:"created_by,omitempty"`
 		UpdatedBy     string        `json:"updated_by,omitempty"`
 		CreatedAt     string        `json:"created_at,omitempty"`
