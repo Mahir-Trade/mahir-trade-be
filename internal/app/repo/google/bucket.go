@@ -58,7 +58,7 @@ func (b *BucketRepoImpl) PresignedURL(ctx context.Context, bucketName, privateUr
 	}
 	cleanUrl := urlParsed.Scheme + "://" + urlParsed.Host + decodePath
 
-	objectName := cleanUrl[len(fmt.Sprintf("https://storage.cloud.google.com/%s/", bucketName)):]
+	objectName := cleanUrl[len(fmt.Sprintf("https://%s/%s/", urlParsed.Host, bucketName)):]
 	temporaryAccess := time.Now().Add(1 * time.Hour)
 
 	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
