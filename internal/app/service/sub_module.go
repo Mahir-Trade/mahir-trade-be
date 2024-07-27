@@ -455,8 +455,10 @@ func (s *SubModuleSvcImpl) UploadFile(ctx context.Context, req google.FileUpload
 
 	if strings.Contains(contentType, "video") {
 		req.BucketName = s.GoogleCfg.VideoBucketName
-	} else {
+	} else if strings.Contains(contentType, "image") || strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "png") || strings.Contains(contentType, "jpg") {
 		req.BucketName = s.GoogleCfg.ImageBucketName
+	} else {
+		req.BucketName = s.GoogleCfg.FileBucketName
 	}
 
 	url, err := s.BucketRepo.UploadFile(ctx, req, src)

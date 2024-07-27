@@ -24,6 +24,7 @@ type (
 		ServiceAccountFilePath string `envconfig:"GOOGLE_SERVICE_ACCOUNT_FILE_PATH" required:"true"`
 		VideoBucketName        string `envconfig:"GOOGLE_VIDEO_BUCKET_NAME" required:"true"`
 		ImageBucketName        string `envconfig:"GOOGLE_IMAGE_BUCKET_NAME" required:"true"`
+		FileBucketName         string `envconfig:"GOOGLE_FILE_BUCKET_NAME" required:"true"`
 	}
 )
 

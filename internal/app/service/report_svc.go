@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"mahir-trade-be/internal/app/infra"
 	"mahir-trade-be/internal/app/models"
+	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"math"
 	"net/http"
@@ -25,6 +27,8 @@ type (
 		dig.In
 
 		ReportRepo postgres.ReportRepo
+		BucketRepo google.BucketRepo
+		GoogleCfg  *infra.GoogleCfg
 	}
 )
 
@@ -74,9 +78,30 @@ func (r *ReportSvcImpl) GetReports(ctx context.Context, req models.PaginationReq
 		return resp, err
 	}
 
+	var reportsResp []models.Report
+	for _, report := range reports {
+		parsedThumbnailURL := r.BucketRepo.URLParser(report.ReportThumbnailURL)
+		if report.ReportThumbnailURL != "" {
+			report.ReportThumbnailURL, err = r.BucketRepo.PresignedURL(ctx, parsedThumbnailURL.BucketName, report.ReportThumbnailURL)
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReports] while PresignedURL err : %v", err.Error()))
+			}
+		}
+
+		parsedFileURL := r.BucketRepo.URLParser(report.ReportFileURL)
+		if report.ReportFileURL != "" {
+			report.ReportFileURL, err = r.BucketRepo.PresignedURL(ctx, parsedFileURL.BucketName, report.ReportFileURL)
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReports] while PresignedURL err : %v", err.Error()))
+			}
+		}
+
+		reportsResp = append(reportsResp, report)
+	}
+
 	// convert to response
 	{
-		dataResp.Data = reports
+		dataResp.Data = reportsResp
 		resp.Page = uint(req.Page)
 		resp.Limit = uint(req.Limit)
 
@@ -106,6 +131,22 @@ func (r *ReportSvcImpl) GetReportByID(ctx context.Context, id int64) (resp model
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReportByID] while GetReportByID err : %v", err.Error()))
 
 		return resp, err
+	}
+
+	if report.ReportThumbnailURL != "" {
+		parsedThumbnailURL := r.BucketRepo.URLParser(report.ReportThumbnailURL)
+		report.ReportThumbnailURL, err = r.BucketRepo.PresignedURL(ctx, parsedThumbnailURL.BucketName, report.ReportThumbnailURL)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReportByID] while PresignedURL err : %v", err.Error()))
+		}
+	}
+
+	if report.ReportFileURL != "" {
+		parsedFileURL := r.BucketRepo.URLParser(report.ReportFileURL)
+		report.ReportFileURL, err = r.BucketRepo.PresignedURL(ctx, parsedFileURL.BucketName, report.ReportFileURL)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReportByID] while PresignedURL err : %v", err.Error()))
+		}
 	}
 
 	resp.Data = report
