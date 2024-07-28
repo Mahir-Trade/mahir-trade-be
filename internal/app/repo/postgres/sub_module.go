@@ -15,7 +15,7 @@ type (
 	SubModuleRepo interface {
 		CreateSubModule(ctx context.Context, req models.SubModule) (id int, err error)
 		GetSubModuleByID(ctx context.Context, id int64) (subModule models.SubModule, err error)
-		GetSubModulesByModuleID(ctx context.Context, moduleID, userID int64) (subModules []models.SubModule, err error)
+		GetSubModulesByModuleID(ctx context.Context, moduleID, userID int64, req models.PaginationRequest) (subModules []models.SubModule, totalCount int64, err error)
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (subModules []models.SubModule, totalCount int64, err error)
 		UpdateSubModule(ctx context.Context, req models.SubModule) (err error)
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64, operator string) (err error)
@@ -66,7 +66,16 @@ func (s *SubModuleRepoImpl) GetSubModuleByID(ctx context.Context, id int64) (sub
 }
 
 func (s *SubModuleRepoImpl) GetSubModules(ctx context.Context, req models.PaginationRequest) (subModules []models.SubModule, totalCount int64, err error) {
-	rows, err := s.QueryContext(ctx, queries.QueryGetSubModules, req.Limit, req.Page)
+	if req.Limit == 0 {
+		req.Limit = 10
+	}
+
+	offset := 0
+	if req.Page > 1 {
+		offset = int((req.Page - 1) * req.Limit)
+	}
+
+	rows, err := s.QueryContext(ctx, queries.QueryGetSubModules, req.Limit, offset)
 	if err != nil {
 		return subModules, totalCount, err
 	}
@@ -86,8 +95,17 @@ func (s *SubModuleRepoImpl) GetSubModules(ctx context.Context, req models.Pagina
 	return subModules, totalCount, nil
 }
 
-func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleID, userID int64) (subModules []models.SubModule, err error) {
-	rows, err := s.QueryContext(ctx, queries.QueryGetSubModuleByModuleID, moduleID, userID)
+func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleID, userID int64, req models.PaginationRequest) (subModules []models.SubModule, totalCount int64, err error) {
+	if req.Limit == 0 {
+		req.Limit = 10
+	}
+
+	offset := 0
+	if req.Page > 1 {
+		offset = int((req.Page - 1) * req.Limit)
+	}
+
+	rows, err := s.QueryContext(ctx, queries.QueryGetSubModuleByModuleID, moduleID, userID, req.Limit, offset)
 	if err != nil {
 		slog.ErrorContext(ctx, "[subModuleRepoImpl][GetSubModulesByModuleID] error while QueryContext", "%v", err.Error())
 		err = fmt.Errorf("internal server error")
@@ -98,7 +116,7 @@ func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleI
 
 	for rows.Next() {
 		var subModule models.SubModule
-		err = rows.Scan(&subModule.ID, &subModule.UUID, &subModule.ModuleID, &subModule.SubModuleName, &subModule.Title, &subModule.VideoURL, &subModule.CreatedBy, &subModule.UpdatedBy, &subModule.CreatedAt, &subModule.UpdatedAt, &subModule.Status)
+		err = rows.Scan(&totalCount, &subModule.ID, &subModule.UUID, &subModule.ModuleID, &subModule.SubModuleName, &subModule.Title, &subModule.VideoURL, &subModule.CreatedBy, &subModule.UpdatedBy, &subModule.CreatedAt, &subModule.UpdatedAt, &subModule.Status)
 		if err != nil {
 			slog.ErrorContext(ctx, "[subModuleRepoImpl][GetSubModulesByModuleID] error while rows.Scan", "%v", err.Error())
 			err = fmt.Errorf("data not match")
@@ -114,7 +132,7 @@ func (s *SubModuleRepoImpl) GetSubModulesByModuleID(ctx context.Context, moduleI
 		return
 	}
 
-	return subModules, nil
+	return subModules, totalCount, nil
 }
 
 func (s *SubModuleRepoImpl) UpdateSubModule(ctx context.Context, req models.SubModule) (err error) {

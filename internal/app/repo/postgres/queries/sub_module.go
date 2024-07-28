@@ -3,12 +3,13 @@ package queries
 const (
 	QueryCreateSubModule                = `INSERT INTO sub_modules (module_id, sub_module_name, title, video_url, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id`
 	QueryCreateSubModuleWithoutModuleID = `INSERT INTO sub_modules (sub_module_name, title, video_url, created_by) VALUES ($1, $2, $3, $4) RETURNING id`
-	QueryGetSubModules                  = `SELECT COUNT(id) OVER(), id, uuid, module_id, sub_module_name, title, video_url, created_by, updated_by, created_at, updated_at FROM sub_modules WHERE deleted_at IS NULL LIMIT $1 OFFSET $2`
+	QueryGetSubModules                  = `SELECT COUNT(*) OVER(), id, uuid, module_id, sub_module_name, title, video_url, created_by, updated_by, created_at, updated_at FROM sub_modules WHERE deleted_at IS NULL LIMIT $1 OFFSET $2`
 
 	QueryGetSubModuleByID = `SELECT id, uuid, module_id, sub_module_name, title, video_url, created_by, updated_by, created_at, updated_at FROM sub_modules WHERE id = $1 AND deleted_at IS NULL`
 
 	QueryGetSubModuleByModuleID = `
 		SELECT 
+			COUNT(*) OVER(),
 			sm.id, 
 			sm.uuid, 
 			sm.module_id, 
@@ -32,7 +33,8 @@ const (
 			AND usm.user_id = $2
 		WHERE 
 			sm.module_id = $1 
-			AND sm.deleted_at IS NULL;
+			AND sm.deleted_at IS NULL
+		LIMIT $3 OFFSET $4;
 	`
 
 	QueryUpdateSubModule = `UPDATE sub_modules SET sub_module_name = $1, title = $2, video_url = $3, updated_by = $4, updated_at = NOW(), module_id = $5 WHERE id = $6`
