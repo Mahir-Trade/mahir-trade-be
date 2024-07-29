@@ -204,10 +204,25 @@ func (ox *SubModuleCtrlImpl) GetSubModulesByModuleID(ec echo.Context) error {
 		})
 	}
 
-	res, err := ox.SubModuleSvc.GetSubModulesByModuleID(ctx, moduleID)
+	limit, err := strconv.ParseInt(ec.QueryParam("limit"), 10, 64)
+	if err != nil {
+		limit = 10
+	}
+
+	page, err := strconv.ParseInt(ec.QueryParam("page"), 10, 64)
+	if err != nil {
+		page = 1
+	}
+
+	req := models.PaginationRequest{
+		Limit: limit,
+		Page:  page,
+	}
+
+	res, err := ox.SubModuleSvc.GetSubModulesByModuleID(ctx, moduleID, req)
 	if err != nil {
 		slog.Error("GetSubModuleByModuleID - something went wrong", err)
-		return ec.JSON(res.Code, res)
+		return ec.JSON(http.StatusInternalServerError, res)
 	}
 
 	return ec.JSON(http.StatusOK, res)

@@ -53,7 +53,7 @@ func (d *DiscordAccountRepoImpl) GetDiscordAccountByUserID(ctx context.Context, 
 	err = row.Scan(&discordAccount.ID, &discordAccount.UserID, &discordAccount.DiscordAccountID, &discordAccount.Username, &discordAccount.Email, &discordAccount.CreatedAt, &discordAccount.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return discordAccount, fmt.Errorf("discord account with user id %d not found", userID)
+			return discordAccount, nil
 		}
 
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetGroup err: %v", err.Error()))

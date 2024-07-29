@@ -4,21 +4,13 @@ services:
   reverse-proxy:
     image: traefik:v3.0
     command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=mahirtrade.id@gmail.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--accesslog=true"
-      - "--accesslog.filePath=/logs/access.log"
+      - "--configFile=/traefik.yml"
     ports:
       - "80:80"
       - "443:443"
       - "8080:8080"
     volumes:
+      - "./traefik.yml:/traefik.yml"
       - "./logs/:/logs/"
       - "./letsencrypt:/letsencrypt"
       - "/var/run/docker.sock:/var/run/docker.sock"
@@ -53,6 +45,9 @@ services:
       PG_DBUSER: MahirTrade
       PG_DBPASS: MahirTrade123-
       PG_DBNAME: mahir-trade
+    volumes:
+      - ./service_account.json:/app/service_account.json
+      - ~/.config/gcloud:/root/.config/gcloud
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mahir-trade-be.rule=Host(`api.mahirtrade.com`)"

@@ -31,5 +31,6 @@ type (
 		Username           string `json:"username" validate:"required"`
 		IsActive           bool   `json:"is_active,omitempty"`
 		IsMembershipActive bool   `json:"is_membership_active"`
+		DiscordUsername    string `json:"discord_username"`
 	}
 )

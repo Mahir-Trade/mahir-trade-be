@@ -1,0 +1,34 @@
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+    transport:
+      respondingTimeouts:
+        writeTimeout: "10m"
+        readTimeout: "10m"
+        # idleTimeout: "30m"
+
+providers:
+  docker:
+    exposedByDefault: false
+
+certificatesResolvers:
+  myresolver:
+    acme:
+      email: "mahirtrade.id@gmail.com"
+      storage: "/letsencrypt/acme.json"
+      tlsChallenge: {}
+
+# serversTransport:
+#   forwardingTimeouts:
+#     dialTimeout: "30m"
+#     idleConnTimeout: "30m"
+#     responseHeaderTimeout: "30m"
+
+api:
+  insecure: true
+
+log:
+  level: DEBUG
+  filePath: "/logs/access.log"

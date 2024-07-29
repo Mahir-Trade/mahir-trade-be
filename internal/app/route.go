@@ -117,11 +117,12 @@ func setRoute(
 
 	}
 
-	base.POST("/upload", subModuleCtrl.UploadFile)
+	base.POST("/upload", subModuleCtrl.UploadFile, middleware.AuthAdminOrUser("admin"))
 
 	// Public route
 	{
 		base.POST("/payment-link-callback", paymentCtrl.PaymentLinkCallback)
 		base.GET("/cron", paymentCtrl.PaymentLinkCallback)
+		base.GET("/package-list", packageCtrl.GetPackages)
 	}
 }

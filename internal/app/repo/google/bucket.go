@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -27,9 +28,17 @@ type (
 		BucketName      string `json:"bucket_name"`
 	}
 
+	URLParserResponse struct {
+		URL        string `json:"url"`
+		Host       string `json:"host"`
+		Path       string `json:"path"`
+		BucketName string `json:"bucket_name"`
+	}
+
 	BucketRepo interface {
 		PresignedURL(ctx context.Context, bucketName, privateUrl string) (url string, err error)
 		UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error)
+		URLParser(fileURL string) (resp URLParserResponse)
 	}
 
 	BucketRepoImpl struct {
@@ -58,7 +67,7 @@ func (b *BucketRepoImpl) PresignedURL(ctx context.Context, bucketName, privateUr
 	}
 	cleanUrl := urlParsed.Scheme + "://" + urlParsed.Host + decodePath
 
-	objectName := cleanUrl[len(fmt.Sprintf("https://storage.cloud.google.com/%s/", bucketName)):]
+	objectName := cleanUrl[len(fmt.Sprintf("https://%s/%s/", urlParsed.Host, bucketName)):]
 	temporaryAccess := time.Now().Add(1 * time.Hour)
 
 	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
@@ -122,4 +131,26 @@ func (b *BucketRepoImpl) UploadFile(ctx context.Context, form FileUpload, file m
 	}
 
 	return
+}
+
+func (b *BucketRepoImpl) URLParser(fileURL string) (resp URLParserResponse) {
+	urlParsed, err := url.Parse(fileURL)
+	if err != nil {
+		slog.Error("[repo][google][URLParser] error while parse url err: %v", err)
+		return
+	}
+
+	decodePath := urlParsed.Path
+	if decodePath, err = url.QueryUnescape(decodePath); err != nil {
+		slog.Error("[repo][google][URLParser] error while decode url err: %v", err)
+		return
+	}
+	cleanUrl := urlParsed.Scheme + "://" + urlParsed.Host + decodePath
+
+	resp.URL = cleanUrl
+	resp.Host = urlParsed.Host
+	resp.Path = decodePath
+	resp.BucketName = strings.Split(decodePath, "/")[1]
+
+	return resp
 }
