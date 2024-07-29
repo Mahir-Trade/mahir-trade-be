@@ -543,14 +543,9 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	userEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
 	userName := strings.ToLower(strings.TrimSpace(userInfo.Name))
 
-	user, err := u.UserRepo.FindUserByEmailAndUsername(ctx, userEmail, userName)
+	user, err := u.UserRepo.FindUserByEmailOrUsername(ctx, userEmail)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][FindUserByEmailAndUsername] err : %v", err))
-		err = fmt.Errorf("internal server error, we will fix it soon")
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "internal server error, we will fix it soon"
-		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
-		return
+		slog.InfoContext(ctx, "[service][CallbackGoogle][FindUserByEmailOrUsername], Try to create new user")
 	}
 
 	if user.UserID != 0 {
