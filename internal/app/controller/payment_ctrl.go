@@ -95,11 +95,7 @@ func (p *PaymentCtrlImpl) PaymentLinkCallback(ec echo.Context) error {
 	err := p.PaymentSvc.MidtransPaymentLinkNotification(ctx, req)
 	if err != nil {
 		slog.Error("PaymentLinkCallback - something went wrong, MidtransPaymentLinkNotification error", err)
-		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-			Code:    http.StatusBadRequest,
-			Message: "something went wrong",
-			Error:   err.Error(),
-		})
+		return ec.JSON(http.StatusOK, "success")
 	}
 
 	return ec.JSON(http.StatusOK, "success")
