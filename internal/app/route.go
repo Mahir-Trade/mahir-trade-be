@@ -33,7 +33,7 @@ func setRoute(
 		users.POST("/register", authCtrl.UserRegistration)
 		users.POST("/login", authCtrl.UserLogin)
 		users.GET("/login/google", authCtrl.LoginWithGoogle)
-		users.POST("/login/google/callback", authCtrl.CallbackGoogle)
+		users.POST("/login/google-callback", authCtrl.CallbackGoogle)
 
 		// Dashboard
 		users.GET("/detail", authCtrl.GetDetailUser, middleware.AuthAdminOrUser("user"))
