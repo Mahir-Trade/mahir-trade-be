@@ -254,31 +254,27 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 		}
 	}()
 
-	// var req service.GoogleLoginReq
-	// if err := ec.Bind(&req); err != nil {
-	// 	slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
-	// 	return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-	// 		Code:    http.StatusBadRequest,
-	// 		Message: "bad request",
-	// 		Data:    struct{}{},
-	// 		Error:   err.Error(),
-	// 	})
-	// }
-
-	state := ec.QueryParam("state")
-	code := ec.QueryParam("code")
-
-	if state == "" || code == "" {
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "Invalid request",
-			English:    "Invalid request",
-			Error:      "state or code is empty",
+	var req service.GoogleLoginReq
+	if err := ec.Bind(&req); err != nil {
+		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Data:    struct{}{},
+			Error:   err.Error(),
 		})
 	}
 
-	req := service.GoogleLoginReq{
-		State: state,
-		Code:  code,
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors.Error(),
+		})
 	}
 
 	res, err := ox.UserSvc.CallbackGoogle(ctx, req)
