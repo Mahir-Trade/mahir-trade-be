@@ -12,6 +12,7 @@ import (
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/middleware"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -528,9 +529,18 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 		resp.Data = struct{}{}
 	}
 
+	decodeString, err := url.QueryUnescape(req.Code)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][QueryUnescape] err : %v", err))
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = fmt.Errorf("bad request").Error()
+		return
+	}
+
 	userInfo, err := u.GoogleRepo.Callback(ctx, google.GoogleCallbackRequest{
 		State: req.State,
-		Code:  req.Code,
+		Code:  decodeString,
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle] err : %v", err))
