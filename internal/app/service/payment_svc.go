@@ -105,12 +105,12 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 	req := models.MidtransGeneratePaymentLinkRequest{
 		TransactionDetails: models.TransactionDetails{
 			OrderID:     paymentCode,
-			GrossAmount: packageData.Price,
+			GrossAmount: packageData.DiscountedPrice,
 		},
 		ItemDetails: []models.ItemDetails{
 			{
 				Name:     fmt.Sprintf("Package %d month", packageData.DurationInMonth),
-				Price:    packageData.Price,
+				Price:    packageData.DiscountedPrice,
 				Quantity: 1,
 			},
 		},
