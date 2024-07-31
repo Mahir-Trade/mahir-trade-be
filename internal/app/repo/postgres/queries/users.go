@@ -36,12 +36,17 @@ const (
 			u.email,
 			u.username,
 			u.is_active,
+			case 
+				when um.id is not null then 'Premium'
+				else 'Standard'
+			end as account_type,
+			um.expired_at as membership_expired_date,
 			u.created_at,
-			u.created_by,
-			u.updated_at,
-			u.updated_by
+			u.created_by
 		FROM
 			users u
+		left join
+			user_memberships um on um.user_id = u.user_id AND um.expired_at > NOW()
 		WHERE
 			u.deleted_at IS NULL
 	`

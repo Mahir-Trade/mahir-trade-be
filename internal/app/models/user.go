@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type (
 	User struct {
 		UserID      int64  `json:"user_id,omitempty"`
@@ -32,5 +34,18 @@ type (
 		IsActive           bool   `json:"is_active,omitempty"`
 		IsMembershipActive bool   `json:"is_membership_active"`
 		DiscordUsername    string `json:"discord_username"`
+	}
+
+	GetUsersBOResponse struct {
+		UserID                int64      `json:"user_id,omitempty"`
+		UUID                  string     `json:"uuid,omitempty"`
+		Email                 string     `json:"email" validate:"required,email"`
+		PhoneNumber           string     `json:"phone_number,omitempty"`
+		Username              string     `json:"username" validate:"required"`
+		AccountType           string     `json:"account_type"`
+		MembershipExpiredData *time.Time `json:"membership_expired_date"`
+		IsActive              bool       `json:"is_active,omitempty"`
+		CreatedAt             string     `json:"created_at,omitempty"`
+		CreatedBy             string     `json:"created_by,omitempty"`
 	}
 )
