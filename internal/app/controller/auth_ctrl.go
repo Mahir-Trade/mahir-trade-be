@@ -7,6 +7,7 @@ import (
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -69,10 +70,20 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 	err := validate.Struct(user)
 	if err != nil {
 		errors := err.(validator.ValidationErrors)
+
+		var errMsg string
+		if strings.Contains(errors.Error(), "email") {
+			errMsg = "Email is not valid"
+		} else if strings.Contains(errors.Error(), "Password") {
+			errMsg = "Password is not valid, must be at least 8 characters, contains uppercase, lowercase, number, and special character"
+		} else if strings.Contains(errors.Error(), "Username") {
+			errMsg = "Username is required"
+		}
+
 		slog.Error("UserRegistration - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
 			Code:    http.StatusBadRequest,
-			Message: utils.ErrorInvalidRequestBody,
+			Message: errMsg,
 			Error:   errors.Error(),
 		})
 	}
