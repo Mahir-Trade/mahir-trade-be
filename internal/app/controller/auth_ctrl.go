@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -265,15 +267,21 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 		}
 	}()
 
-	var req service.GoogleLoginReq
-	if err := ec.Bind(&req); err != nil {
-		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
+	state := ec.QueryParam("state")
+	code := ec.QueryParam("code")
+
+	if state == "" || code == "" {
+		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", "state or code is empty", nil)
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
 			Code:    http.StatusBadRequest,
 			Message: "bad request",
-			Data:    struct{}{},
-			Error:   err.Error(),
+			Error:   "state or code is empty",
 		})
+	}
+
+	req := service.GoogleLoginReq{
+		State: state,
+		Code:  code,
 	}
 
 	validate := utils.Validate
@@ -291,10 +299,20 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 	res, err := ox.UserSvc.CallbackGoogle(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
-		return ec.JSON(res.Code, res)
+		return ec.JSON(http.StatusBadGateway, models.DefaultResponse{
+			Code:    http.StatusBadGateway,
+			Message: "bad gateway",
+			Error:   err.Error(),
+		})
 	}
 
-	return ec.JSON(res.Code, res)
+	fmt.Println("token", res.Token)
+	fmt.Println("expiredAt", res.Expire)
+
+	baseUrl := os.Getenv("GOOGLE_FRONTEND_REDIRECT_URL")
+	baseUrl += "?token=" + res.Token + "&expiredAt=" + res.Expire.Format(time.RFC3339)
+
+	return ec.Redirect(http.StatusTemporaryRedirect, baseUrl)
 }
 
 func (ox *AuthCtrlImpl) GetDetailUser(ec echo.Context) error {

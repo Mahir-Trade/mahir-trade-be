@@ -37,6 +37,11 @@ type (
 		Usename string `json:"username"`
 	}
 
+	LoginRespose struct {
+		Token  string    `json:"token"`
+		Expire time.Time `json:"expire"`
+	}
+
 	UserSvc interface {
 		UserRegistration(ctx context.Context, req models.UserRegistrationRequest) (resp models.DefaultResponse, err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
@@ -46,7 +51,7 @@ type (
 		ConnectDiscordAccountAndAssignRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccountAndRemoveRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		LoginWithGoogle(ctx context.Context) (url string, err error)
-		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error)
+		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp LoginRespose, err error)
 		GetDetailUser(ctx context.Context) (resp models.DefaultResponse, err error)
 		GetDetailUserForBO(ctx context.Context, userID int64) (resp models.DefaultResponse, err error)
 		UpdateMembership(ctx context.Context) (err error)
@@ -521,20 +526,11 @@ func (u *UserSvcImpl) LoginWithGoogle(ctx context.Context) (url string, err erro
 	return
 }
 
-func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp models.DefaultResponse, err error) {
-
-	{
-		resp.Code = http.StatusOK
-		resp.Message = "success"
-		resp.Data = struct{}{}
-	}
+func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp LoginRespose, err error) {
 
 	decodeString, err := url.QueryUnescape(req.Code)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][QueryUnescape] err : %v", err))
-		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
-		resp.Error = fmt.Errorf("bad request").Error()
 		return
 	}
 
@@ -544,9 +540,6 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle] err : %v", err))
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "internal server error, we will fix it soon"
-		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 		return
 	}
 
@@ -566,22 +559,11 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 		})
 		if errSign != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
-			resp.Error = fmt.Errorf("internal server error, we will fix it soon")
-			resp.Code = http.StatusInternalServerError
-			resp.Message = "internal server error, we will fix it soon"
 			return
 		}
-		resp = models.DefaultResponse{
-			Code:    http.StatusOK,
-			Message: "success",
-			Data: struct {
-				Token  string    `json:"token"`
-				Expire time.Time `json:"expire"`
-			}{
-				Token:  token,
-				Expire: exp,
-			},
-			Error: struct{}{},
+		resp = LoginRespose{
+			Token:  token,
+			Expire: exp,
 		}
 
 		return
@@ -590,9 +572,6 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	passwordHash, err := utils.HashPassword(utils.GenerateRandomPassword(12))
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][HashPassword] err : %v", err))
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "internal server error, we will fix it soon"
-		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 		return
 	}
 
@@ -605,9 +584,6 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	_, err = u.UserRepo.CreateUser(ctx, userReq)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][CreateUser] err : %v", err))
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "internal server error, we will fix it soon"
-		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 		return
 	}
 
@@ -619,22 +595,12 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 
 	if errSign != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "internal server error, we will fix it soon"
-		resp.Error = fmt.Errorf("internal server error, we will fix it soon")
 		return
 	}
 
-	resp = models.DefaultResponse{
-		Code:    http.StatusOK,
-		Message: "success",
-		Data: struct {
-			Token  string    `json:"token"`
-			Expire time.Time `json:"expire"`
-		}{
-			Token:  token,
-			Expire: exp,
-		},
+	resp = LoginRespose{
+		Token:  token,
+		Expire: exp,
 	}
 
 	return
