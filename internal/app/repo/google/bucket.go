@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	transcoder "cloud.google.com/go/video/transcoder/apiv1"
+	"cloud.google.com/go/video/transcoder/apiv1/transcoderpb"
 	"go.uber.org/dig"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -39,6 +41,7 @@ type (
 		PresignedURL(ctx context.Context, bucketName, privateUrl string) (url string, err error)
 		UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error)
 		URLParser(fileURL string) (resp URLParserResponse)
+		StartTranscodingJob(bucketName, filename string)
 	}
 
 	BucketRepoImpl struct {
@@ -153,4 +156,169 @@ func (b *BucketRepoImpl) URLParser(fileURL string) (resp URLParserResponse) {
 	resp.BucketName = strings.Split(decodePath, "/")[1]
 
 	return resp
+}
+
+func (b *BucketRepoImpl) StartTranscodingJob(bucketName, filename string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	// Create a new Transcoder client
+	client, err := transcoder.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][StartTranscodingJob][CreateClient] err :", err)
+		return
+	}
+	defer client.Close()
+
+	// Define input and output paths
+	inputURI := fmt.Sprintf("gs://%s/%s", bucketName, filename)
+	outputURI := fmt.Sprintf("gs://%s/", fmt.Sprintf("%s_transcoded", bucketName))
+
+	fileName240p := strings.Replace(filename, ".mp4", "-240p", -1)
+	fileName360p := strings.Replace(filename, ".mp4", "-360p", -1)
+	fileName480p := strings.Replace(filename, ".mp4", "-480p", -1)
+	fileName720p := strings.Replace(filename, ".mp4", "-720p", -1)
+
+	parent := "projects/mahir-trade-429013/locations/asia-southeast1"
+	audioStream := &transcoderpb.ElementaryStream{
+		Key: "audio",
+		ElementaryStream: &transcoderpb.ElementaryStream_AudioStream{
+			AudioStream: &transcoderpb.AudioStream{
+				Codec:      "aac", // Or other supported codec
+				BitrateBps: 128000,
+				// Other audio stream fields as needed
+			},
+		},
+	}
+
+	// Define job configuration for different resolutions
+	job := &transcoderpb.CreateJobRequest{
+		Parent: parent,
+		Job: &transcoderpb.Job{
+			InputUri:  inputURI,
+			OutputUri: outputURI,
+			JobConfig: &transcoderpb.Job_Config{
+				Config: &transcoderpb.JobConfig{
+					ElementaryStreams: []*transcoderpb.ElementaryStream{
+						audioStream,
+						{
+							Key: fileName240p,
+							ElementaryStream: &transcoderpb.ElementaryStream_VideoStream{
+								VideoStream: &transcoderpb.VideoStream{
+									CodecSettings: &transcoderpb.VideoStream_H264{
+										H264: &transcoderpb.VideoStream_H264CodecSettings{
+											BitrateBps:   500000,
+											FrameRate:    30,
+											HeightPixels: 240,
+											WidthPixels:  426,
+										},
+									},
+								},
+							},
+						},
+						{
+							Key: fileName360p,
+							ElementaryStream: &transcoderpb.ElementaryStream_VideoStream{
+								VideoStream: &transcoderpb.VideoStream{
+									CodecSettings: &transcoderpb.VideoStream_H264{
+										H264: &transcoderpb.VideoStream_H264CodecSettings{
+											BitrateBps:   800000,
+											FrameRate:    30,
+											HeightPixels: 360,
+											WidthPixels:  640,
+										},
+									},
+								},
+							},
+						},
+						{
+							Key: fileName480p,
+							ElementaryStream: &transcoderpb.ElementaryStream_VideoStream{
+								VideoStream: &transcoderpb.VideoStream{
+									CodecSettings: &transcoderpb.VideoStream_H264{
+										H264: &transcoderpb.VideoStream_H264CodecSettings{
+											BitrateBps:   1000000,
+											FrameRate:    30,
+											HeightPixels: 480,
+											WidthPixels:  854,
+										},
+									},
+								},
+							},
+						},
+						{
+							Key: fileName720p,
+							ElementaryStream: &transcoderpb.ElementaryStream_VideoStream{
+								VideoStream: &transcoderpb.VideoStream{
+									CodecSettings: &transcoderpb.VideoStream_H264{
+										H264: &transcoderpb.VideoStream_H264CodecSettings{
+											BitrateBps:   2500000,
+											FrameRate:    30,
+											HeightPixels: 720,
+											WidthPixels:  1280,
+										},
+									},
+								},
+							},
+						},
+					},
+					MuxStreams: []*transcoderpb.MuxStream{
+						{
+							Key:               fileName240p,
+							ElementaryStreams: []string{fileName240p, "audio"},
+							Container:         "mp4",
+						},
+						{
+							Key:               fileName360p,
+							ElementaryStreams: []string{fileName360p, "audio"},
+							Container:         "mp4",
+						},
+						{
+							Key:               fileName480p,
+							ElementaryStreams: []string{fileName480p, "audio"},
+							Container:         "mp4",
+						},
+						{
+							Key:               fileName720p,
+							ElementaryStreams: []string{fileName720p, "audio"},
+							Container:         "mp4",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Create the transcoding job
+	slog.InfoContext(ctx, "[repo][google][StartTranscodingJob][CreateJob] job start for filename: %s", filename)
+	resp, err := client.CreateJob(ctx, job)
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][StartTranscodingJob][CreateJob] err :", err)
+		return
+	}
+
+	// Check job status periodically
+	jobName := resp.GetName()
+	for {
+		getJobResp, err := client.GetJob(ctx, &transcoderpb.GetJobRequest{Name: jobName})
+		if err != nil {
+			slog.ErrorContext(ctx, "[repo][google][StartTranscodingJob][GetJob] err :", err)
+			return
+		}
+
+		if getJobResp.State != transcoderpb.Job_SUCCEEDED {
+			if getJobResp.State == transcoderpb.Job_FAILED {
+				slog.Error("Job failed: %v", getJobResp.GetError().Message)
+				return
+			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// Job succeeded
+		slog.Info("Job succeeded: %s", jobName)
+		break
+	}
+
+	return
 }

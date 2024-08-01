@@ -3,6 +3,7 @@ module mahir-trade-be
 go 1.22
 
 require (
+	cloud.google.com/go/video v1.21.0
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible

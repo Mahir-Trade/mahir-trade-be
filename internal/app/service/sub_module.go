@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io"
 	"log/slog"
 	"mahir-trade-be/internal/app/infra"
@@ -50,7 +51,7 @@ type (
 
 	SubModuleSvc interface {
 		CreateSubModule(ctx context.Context, req SubModuleRequest) (resp models.DefaultResponse, err error)
-		GetSubModuleByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
+		GetSubModuleByID(ctx context.Context, id int64, resolution string) (resp models.DefaultResponse, err error)
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetSubModulesByModuleID(ctx context.Context, moduleID int64, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		UpdateSubModule(ctx context.Context, id int64, req SubModuleRequest) (resp models.DefaultResponse, err error)
@@ -122,6 +123,11 @@ func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req SubModuleReq
 		resp.Error = "Internal Server Error"
 		return
 	}
+
+	parsedURL := s.BucketRepo.URLParser(req.VideoURL)
+	fileName := strings.Split(parsedURL.Path, "/")[2]
+	go s.BucketRepo.StartTranscodingJob(s.GoogleCfg.VideoBucketName, fileName)
+
 	resp.Data = struct {
 		ID int `json:"id"`
 	}{
@@ -130,7 +136,7 @@ func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req SubModuleReq
 	return
 }
 
-func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error) {
+func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64, resolution string) (resp models.DefaultResponse, err error) {
 	{
 		resp.Code = http.StatusOK
 		resp.Message = "Success"
@@ -144,7 +150,32 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 		resp.Error = "Internal Server Error"
 		return
 	}
-	url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
+
+	videoUrl := subModule.VideoURL
+	bucketName := s.GoogleCfg.VideoBucketName
+	if resolution != "" {
+		parsedURL := s.BucketRepo.URLParser(subModule.VideoURL)
+
+		clearPath := strings.Split(parsedURL.Path, ".")[0]
+		switch resolution {
+		case "240p":
+			clearPath += "-240p.mp4"
+		case "360p":
+			clearPath += "-360p.mp4"
+		case "480p":
+			clearPath += "-480p.mp4"
+		case "720p":
+			clearPath += "-720p.mp4"
+		}
+
+		path := strings.Split(clearPath, "/")
+		path[1] += "_transcoded"
+		clearPath = strings.Join(path, "/")
+		videoUrl = fmt.Sprintf("https://%s%s", parsedURL.Host, clearPath)
+		bucketName += "_transcoded"
+	}
+
+	url, err := s.BucketRepo.PresignedURL(ctx, bucketName, videoUrl)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
 		resp.Code = http.StatusInternalServerError
