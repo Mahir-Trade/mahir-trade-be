@@ -157,8 +157,7 @@ func (ox *SubModuleCtrlImpl) GetSubModuleByID(ec echo.Context) error {
 		})
 	}
 
-	resolution := ec.QueryParam("resolution")
-	res, err := ox.SubModuleSvc.GetSubModuleByID(ctx, subModuleID, resolution)
+	res, err := ox.SubModuleSvc.GetSubModuleByID(ctx, subModuleID)
 	if err != nil {
 		slog.Error("GetSubModuleByID - something went wrong", err)
 		return ec.JSON(http.StatusInternalServerError, res)
