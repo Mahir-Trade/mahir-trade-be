@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
@@ -193,7 +192,7 @@ func (ox *ModuleCtrlImpl) GetModulesByGroupID(ec echo.Context) error {
 			Error:   "group id is required",
 		})
 	}
-	fmt.Println("groupID", groupID)
+
 	resp, err := ox.ModuleSvc.GetModulesByGroupID(ctx, groupID)
 	if err != nil {
 		slog.Error("GetModulesByGroupID - something went wrong", err)

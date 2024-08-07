@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
@@ -305,9 +304,6 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 			Error:   err.Error(),
 		})
 	}
-
-	fmt.Println("token", res.Token)
-	fmt.Println("expiredAt", res.Expire)
 
 	baseUrl := os.Getenv("GOOGLE_FRONTEND_REDIRECT_URL")
 	baseUrl += "?token=" + res.Token + "&expiredAt=" + res.Expire.Format(time.RFC3339)
