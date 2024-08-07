@@ -164,12 +164,17 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 
 		if res != "1080p" {
 			parsedURL := s.BucketRepo.URLParser(subModule.VideoURL)
-			clearPath := strings.Split(parsedURL.Path, ".")[0]
-			clearPath += fmt.Sprintf("-%s.mp4", res)
-			path := strings.Split(clearPath, "/")
+			index := strings.LastIndex(parsedURL.Path, ".mp4")
+			if index == -1 {
+				slog.Info("no mp4 found, skipping filename : %s", parsedURL.Path)
+				continue
+			}
+
+			newPath := parsedURL.Path[:index] + fmt.Sprintf("-%s", res) + parsedURL.Path[index:]
+			path := strings.Split(newPath, "/")
 			path[1] += "_transcoded"
-			clearPath = strings.Join(path, "/")
-			videoUrl = fmt.Sprintf("https://%s%s", parsedURL.Host, clearPath)
+			newPath = strings.Join(path, "/")
+			videoUrl = fmt.Sprintf("https://%s%s", parsedURL.Host, newPath)
 			bucketName += "_transcoded"
 		}
 
