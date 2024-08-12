@@ -12,6 +12,7 @@ import (
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/middleware"
+	random "math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -90,6 +91,15 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] while GetUserByID err : ", err)
 
 		return resp, err
+	}
+
+	if user.PhoneNumber == "" {
+		source := random.NewSource(time.Now().UnixNano())
+		random := random.New(source)
+		randomNumber := random.Intn(10000000000)
+		randomNumberString := fmt.Sprintf("%010d", randomNumber)
+
+		user.PhoneNumber = fmt.Sprintf("08%s", randomNumberString)
 	}
 
 	paymentCode, err := generatePaymentCode(user.PhoneNumber)

@@ -33,7 +33,7 @@ func (p *PaymentCtrlImpl) CreatePayment(ec echo.Context) error {
 
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("CreateGroup - something went wrong", r)
+			slog.Error("CreatePayment - something went wrong", r)
 		}
 	}()
 
