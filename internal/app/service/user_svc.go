@@ -9,6 +9,7 @@ import (
 	"mahir-trade-be/internal/app/repo/discord"
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/internal/app/repo/sendgrid"
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/middleware"
 	"net/http"
@@ -31,15 +32,26 @@ type (
 		Code  string `json:"code" validate:"required"`
 	}
 
+	ForgotPasswordReq struct {
+		Email string `json:"email" validate:"required,email"`
+	}
+
 	JWTData struct {
 		Email   string `json:"email"`
 		UserID  int64  `json:"user_id"`
 		Usename string `json:"username"`
 	}
 
-	LoginRespose struct {
+	LoginResponse struct {
 		Token  string    `json:"token"`
 		Expire time.Time `json:"expire"`
+	}
+
+	ResetPasswordRequest struct {
+		QueryOne             string `json:"q1" validate:"required"`
+		QueryTwo             string `json:"q2" validate:"required"`
+		Password             string `json:"password" validate:"required,min=8,max=20,uppercase,lowercase,number,specialchar"`
+		PasswordConfirmation string `json:"password_confirmation" validate:"required,min=8,max=20,uppercase,lowercase,number,specialchar"`
 	}
 
 	UserSvc interface {
@@ -51,10 +63,12 @@ type (
 		ConnectDiscordAccountAndAssignRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		ConnectDiscordAccountAndRemoveRole(ctx context.Context, code string) (resp models.DefaultResponse, err error)
 		LoginWithGoogle(ctx context.Context) (url string, err error)
-		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp LoginRespose, err error)
+		CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp LoginResponse, err error)
 		GetDetailUser(ctx context.Context) (resp models.DefaultResponse, err error)
 		GetDetailUserForBO(ctx context.Context, userID int64) (resp models.DefaultResponse, err error)
 		UpdateMembership(ctx context.Context) (err error)
+		ForgotPasswordUser(ctx context.Context, email string) (resp models.DefaultResponse, err error)
+		ResetPasswordUser(ctx context.Context, req ResetPasswordRequest) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -65,6 +79,8 @@ type (
 		DiscordAccountrepo postgres.DiscordAccountRepo
 		GoogleRepo         google.GoogleRepo
 		UserMembershipRepo postgres.UserMembershipRepo
+		EmailTemplateRepo  postgres.EmailTemplateRepo
+		SendgridRepo       sendgrid.SendgridRepo
 	}
 )
 
@@ -526,7 +542,7 @@ func (u *UserSvcImpl) LoginWithGoogle(ctx context.Context) (url string, err erro
 	return
 }
 
-func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp LoginRespose, err error) {
+func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (resp LoginResponse, err error) {
 
 	decodeString, err := url.QueryUnescape(req.Code)
 	if err != nil {
@@ -561,7 +577,7 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][Sign] err : %v", errSign))
 			return
 		}
-		resp = LoginRespose{
+		resp = LoginResponse{
 			Token:  token,
 			Expire: exp,
 		}
@@ -598,7 +614,7 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 		return
 	}
 
-	resp = LoginRespose{
+	resp = LoginResponse{
 		Token:  token,
 		Expire: exp,
 	}
@@ -708,5 +724,205 @@ func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
 		return
 	}
 	slog.InfoContext(ctx, "[service][UpdateMembership] [cron] finish update membership")
+	return
+}
+
+func (u *UserSvcImpl) ForgotPasswordUser(ctx context.Context, email string) (resp models.DefaultResponse, err error) {
+
+	const FORGOT_PASSWORD = "forgot_password"
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+		resp.Data = struct{}{}
+		resp.Error = struct{}{}
+	}
+
+	email = strings.ToLower(strings.TrimSpace(email))
+	user, err := u.UserRepo.FindUserByEmailOrUsername(ctx, email)
+	if err != nil {
+		resp.Code = http.StatusOK
+		resp.Message = "please check your email"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ForgotPasswordUser][FindUserByEmailOrUsername] err : %v", err))
+
+		return resp, err
+	}
+
+	resp.Message = "please check your email"
+
+	encryptedEmail, err := utils.EncryptAES256CBC(email, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ForgotPasswordUser][EncryptAES256CBC] err : %v", err))
+
+		return
+	}
+	encryptedExpiration, err := utils.EncryptAES256CBC(time.Now().Add(time.Hour*4).Format(time.RFC3339), os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ForgotPasswordUser][EncryptAES256CBC] err : %v", err))
+
+		return
+	}
+
+	encryptedEmail = url.QueryEscape(encryptedEmail)
+	encryptedExpiration = url.QueryEscape(encryptedExpiration)
+
+	values := map[string]interface{}{
+		"username":   user.Username,
+		"verifyLink": fmt.Sprintf("%s?q1=%s&q2=%s", os.Getenv("FORGOT_PASSWORD_URL"), encryptedEmail, encryptedExpiration),
+	}
+
+	emailTemplate, err := u.EmailTemplateRepo.GetByKey(ctx, FORGOT_PASSWORD)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ForgotPasswordUser][GetByKey] err : %v", err))
+
+		return
+	}
+
+	parsedHtml, err := utils.MappingValuesToTemplate(values, emailTemplate)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ForgotPasswordUser][MappingValuesToTemplate] err : %v", err))
+
+		return
+	}
+
+	sendgridReq := models.SendgridSendEmailRequest{
+		From:          os.Getenv("SENDGRID_SENDER_EMAIL"),
+		To:            email,
+		Subject:       "Mahir Trade Password Recovery",
+		Body:          parsedHtml,
+		SenderName:    os.Getenv("SENDGRID_SENDER_NAME"),
+		RecepientName: user.Username,
+	}
+
+	go func() {
+		err = u.SendgridRepo.SendEmail(ctx, sendgridReq)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][ForgotPasswordUser][SendEmail] err : %v", err))
+		}
+	}()
+
+	return
+}
+
+func (u *UserSvcImpl) ResetPasswordUser(ctx context.Context, req ResetPasswordRequest) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+		resp.Data = struct{}{}
+	}
+	dataEmail, err := url.QueryUnescape(req.QueryOne)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][QueryUnescape][QueryOne] err : %v", err))
+		return
+	}
+	dataExpiration, err := url.QueryUnescape(req.QueryTwo)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][QueryUnescape][QueryTwo] err : %v", err))
+		return
+	}
+
+	email, err := utils.DecryptAES256CBC(dataEmail, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][DecryptAES256CBC] err : %v", err))
+
+		return resp, err
+	}
+
+	expiration, err := utils.DecryptAES256CBC(dataExpiration, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][DecryptAES256CBC] err : %v", err))
+
+		return resp, err
+	}
+
+	timeParsed, err := time.Parse(time.RFC3339, expiration)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][ParseTime] err : %v", err))
+
+		return resp, err
+	}
+
+	if time.Now().After(timeParsed) {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "illegal token or token expired"
+		resp.Error = fmt.Errorf("illegal token or token expired").Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][CheckTokenExpired] err : %v", err))
+
+		return resp, err
+	}
+
+	user, err := u.UserRepo.FindUserByEmailOrUsername(ctx, email)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "illegal token or token expired"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][FindUserByEmailOrUsername] err : %v", err))
+
+		return resp, err
+	}
+
+	if req.Password != req.PasswordConfirmation {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "password and password confirmation must be same"
+		resp.Error = errors.New(resp.Message).Error()
+
+		return resp, errors.New(resp.Message)
+	}
+
+	passwordHash, err := utils.HashPassword(req.Password)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][HashPassword] err : %v", err))
+
+		return
+	}
+
+	isUpdated, err := u.UserRepo.UpdatePassword(ctx, passwordHash, user.Username, user.UserID)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][UpdatePassword] err : %v", err))
+
+		return
+	}
+
+	if !isUpdated {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = errors.New("internal server error").Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][CheckUpdatePassword] err : %v", err))
+		return
+	}
+
 	return
 }

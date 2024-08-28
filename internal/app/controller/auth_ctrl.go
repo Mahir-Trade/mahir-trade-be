@@ -33,6 +33,8 @@ type (
 		ConnectDiscordAccountAndAssignRole(ec echo.Context) error
 		ConnectDiscordAccountAndRemoveRole(ec echo.Context) error
 		GetDetailUser(ec echo.Context) error
+		ForgotPassword(ec echo.Context) error
+		RequestResetPassword(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -323,6 +325,92 @@ func (ox *AuthCtrlImpl) GetDetailUser(ec echo.Context) error {
 	res, err := ox.UserSvc.GetDetailUser(ctx)
 	if err != nil {
 		slog.Error("GetDetailUser - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ForgotPassword(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ForgotPassword - something went wrong", r)
+		}
+	}()
+
+	var req service.ForgotPasswordReq
+
+	if err := ec.Bind(&req); err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors.Error(),
+		})
+	}
+
+	res, err := ox.UserSvc.ForgotPasswordUser(ctx, req.Email)
+	if err != nil {
+		slog.Error("ForgotPassword - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) RequestResetPassword(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("RequestResetPassword - something went wrong", r)
+		}
+	}()
+
+	var req service.ResetPasswordRequest
+
+	if err := ec.Bind(&req); err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+
+		var errMsg string
+		if strings.Contains(errors.Error(), "Password") {
+			errMsg = "Password is not valid, must be at least 8 characters, contains uppercase, lowercase, number, and special character"
+		}
+		slog.Error("UserRegistration - something went wrong", "error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: errMsg,
+			Error:   errors.Error(),
+		})
+	}
+
+	res, err := ox.UserSvc.ResetPasswordUser(ctx, req)
+	if err != nil {
+		slog.Error("RequestResetPassword - something went wrong", "error", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

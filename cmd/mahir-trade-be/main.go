@@ -10,6 +10,7 @@ import (
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/midtrans"
 	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/internal/app/repo/sendgrid"
 	"mahir-trade-be/internal/app/service"
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/di"
@@ -129,6 +130,12 @@ func LoadApplicationRepository() error {
 	if err != nil {
 		return fmt.Errorf("NewDiscordRepo: %s", err.Error())
 	}
+
+	err = di.Provide(sendgrid.NewSendgridRepo)
+	if err != nil {
+		return fmt.Errorf("NewSendgridRepo: %s", err.Error())
+	}
+
 	err = di.Provide(postgres.NewModuleRepo)
 	if err != nil {
 		return fmt.Errorf("NewModuleRepo: %s", err.Error())
@@ -197,6 +204,11 @@ func LoadApplicationRepository() error {
 	err = di.Provide(google.NewBucketRepo)
 	if err != nil {
 		return fmt.Errorf("NewBucketRepo: %s", err.Error())
+	}
+
+	err = di.Provide(postgres.NewEmailTemplateRepo)
+	if err != nil {
+		return fmt.Errorf("NewEmailTemplateRepo: %s", err.Error())
 	}
 
 	return nil

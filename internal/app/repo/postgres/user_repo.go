@@ -21,6 +21,7 @@ type (
 		GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error)
 		GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.GetUsersBOResponse, totalCount int64, err error)
+		UpdatePassword(ctx context.Context, password string, operator string, id int64) (isUpdated bool, err error)
 	}
 
 	UserRepoImpl struct {
@@ -160,4 +161,22 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 	}
 
 	return
+}
+
+func (u *UserRepoImpl) UpdatePassword(ctx context.Context, password string, operator string, id int64) (isUpdated bool, err error) {
+	row, err := u.ExecContext(ctx, queries.QueryUpdatePassword, password, operator, id)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[repo][UpdatePassword] while ExecContext, err: %v", err.Error()))
+		return
+	}
+
+	affected, err := row.RowsAffected()
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[repo][UpdatePassword] while RowsAffected, err: %v", err.Error()))
+		return
+	}
+
+	isUpdated = affected > 0
+	return
+
 }
