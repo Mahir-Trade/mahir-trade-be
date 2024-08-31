@@ -132,6 +132,8 @@ func (ox *AuthCtrlImpl) UserLogin(ec echo.Context) error {
 		})
 	}
 
+	slog.InfoContext(ctx, "[controller][UserLogin]", "Email", user.Identity)
+
 	res, err := ox.UserSvc.UserLogin(ctx, user)
 	if err != nil {
 		slog.Error("UserLogin - something went wrong", err)

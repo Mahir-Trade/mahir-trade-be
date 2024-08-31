@@ -562,6 +562,8 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	userEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
 	userName := strings.ToLower(strings.TrimSpace(userInfo.Name))
 
+	slog.InfoContext(ctx, fmt.Sprintf("[service][CallbackGoogle] userEmail : %v, userName : %v", userEmail, userName))
+
 	user, err := u.UserRepo.FindUserByEmailOrUsername(ctx, userEmail)
 	if err != nil {
 		slog.InfoContext(ctx, "[service][CallbackGoogle][FindUserByEmailOrUsername], Try to create new user")
@@ -597,7 +599,7 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 		Password: passwordHash,
 	}
 
-	_, err = u.UserRepo.CreateUser(ctx, userReq)
+	userId, err := u.UserRepo.CreateUser(ctx, userReq)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][CreateUser] err : %v", err))
 		return
@@ -605,7 +607,7 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 
 	token, exp, errSign := utils.Sign(JWTData{
 		Email:   userReq.Email,
-		UserID:  userReq.UserID,
+		UserID:  int64(userId),
 		Usename: userReq.Username,
 	})
 
