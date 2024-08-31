@@ -50,4 +50,10 @@ const (
 		WHERE
 			u.deleted_at IS NULL
 	`
+
+	QueryUpdatePassword = `
+		UPDATE users
+		SET password = $1, updated_by = $2, updated_at = NOW()
+		WHERE user_id = $3
+	`
 )
