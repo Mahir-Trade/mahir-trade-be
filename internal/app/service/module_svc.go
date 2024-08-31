@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"mahir-trade-be/internal/app/infra"
 	"mahir-trade-be/internal/app/models"
+	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/pkg/middleware"
 	"math"
@@ -54,6 +56,8 @@ type (
 		ModuleRepo    postgres.ModuleRepo
 		GroupRepo     postgres.GroupRepo
 		SubModuleRepo postgres.SubModuleRepo
+		BucketRepo    google.BucketRepo
+		GoogleCfg     *infra.GoogleCfg
 	}
 )
 
@@ -172,7 +176,12 @@ func (m *ModuleSvcImpl) GetModuleByID(ctx context.Context, moduleID int64) (resp
 	}
 
 	if module.ThumbnailUrl.Valid {
-		respData.ThumbnailUrl = module.ThumbnailUrl.String
+		url, errGetSignedUrl := m.BucketRepo.PresignedURL(ctx, m.GoogleCfg.ImageBucketName, module.ThumbnailUrl.String)
+		if errGetSignedUrl != nil {
+			slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
+			return
+		}
+		respData.ThumbnailUrl = url
 	}
 
 	if module.Tag.Valid {
@@ -221,7 +230,12 @@ func (m *ModuleSvcImpl) GetModules(ctx context.Context, req models.PaginationReq
 			data.GroupName = group.GroupName
 		}
 		if module.ThumbnailUrl.Valid {
-			data.ThumbnailUrl = module.ThumbnailUrl.String
+			url, errGetSignedUrl := m.BucketRepo.PresignedURL(ctx, m.GoogleCfg.ImageBucketName, module.ThumbnailUrl.String)
+			if errGetSignedUrl != nil {
+				slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
+				return
+			}
+			data.ThumbnailUrl = url
 		}
 		if module.Tag.Valid {
 			data.Tag = module.Tag.String
@@ -356,7 +370,12 @@ func (m *ModuleSvcImpl) GetModulesByGroupID(ctx context.Context, groupID int64) 
 		}
 
 		if module.ThumbnailUrl.Valid {
-			data.ThumbnailUrl = module.ThumbnailUrl.String
+			url, errGetSignedUrl := m.BucketRepo.PresignedURL(ctx, m.GoogleCfg.ImageBucketName, module.ThumbnailUrl.String)
+			if errGetSignedUrl != nil {
+				slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
+				return
+			}
+			data.ThumbnailUrl = url
 		}
 
 		if module.Tag.Valid {

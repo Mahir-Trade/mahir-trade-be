@@ -7,6 +7,8 @@ import (
 	"mahir-trade-be/internal/app/service/utils"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -31,6 +33,8 @@ type (
 		ConnectDiscordAccountAndAssignRole(ec echo.Context) error
 		ConnectDiscordAccountAndRemoveRole(ec echo.Context) error
 		GetDetailUser(ec echo.Context) error
+		ForgotPassword(ec echo.Context) error
+		RequestResetPassword(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -69,10 +73,20 @@ func (ox *AuthCtrlImpl) UserRegistration(ec echo.Context) error {
 	err := validate.Struct(user)
 	if err != nil {
 		errors := err.(validator.ValidationErrors)
+
+		var errMsg string
+		if strings.Contains(errors.Error(), "email") {
+			errMsg = "Email is not valid"
+		} else if strings.Contains(errors.Error(), "Password") {
+			errMsg = "Password is not valid, must be at least 8 characters, contains uppercase, lowercase, number, and special character"
+		} else if strings.Contains(errors.Error(), "Username") {
+			errMsg = "Username is required"
+		}
+
 		slog.Error("UserRegistration - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
 			Code:    http.StatusBadRequest,
-			Message: utils.ErrorInvalidRequestBody,
+			Message: errMsg,
 			Error:   errors.Error(),
 		})
 	}
@@ -117,6 +131,8 @@ func (ox *AuthCtrlImpl) UserLogin(ec echo.Context) error {
 			Error:   errors.Error(),
 		})
 	}
+
+	slog.InfoContext(ctx, "[controller][UserLogin]", "Email", user.Identity)
 
 	res, err := ox.UserSvc.UserLogin(ctx, user)
 	if err != nil {
@@ -254,25 +270,15 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 		}
 	}()
 
-	// var req service.GoogleLoginReq
-	// if err := ec.Bind(&req); err != nil {
-	// 	slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
-	// 	return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
-	// 		Code:    http.StatusBadRequest,
-	// 		Message: "bad request",
-	// 		Data:    struct{}{},
-	// 		Error:   err.Error(),
-	// 	})
-	// }
-
 	state := ec.QueryParam("state")
 	code := ec.QueryParam("code")
 
 	if state == "" || code == "" {
-		return ec.JSON(http.StatusBadRequest, ErrorMessage{
-			Indonesian: "Invalid request",
-			English:    "Invalid request",
-			Error:      "state or code is empty",
+		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", "state or code is empty", nil)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+			Error:   "state or code is empty",
 		})
 	}
 
@@ -281,13 +287,32 @@ func (ox *AuthCtrlImpl) CallbackGoogle(ec echo.Context) error {
 		Code:  code,
 	}
 
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors.Error(),
+		})
+	}
+
 	res, err := ox.UserSvc.CallbackGoogle(ctx, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[controller][CallbackGoogle]", err)
-		return ec.JSON(res.Code, res)
+		return ec.JSON(http.StatusBadGateway, models.DefaultResponse{
+			Code:    http.StatusBadGateway,
+			Message: "bad gateway",
+			Error:   err.Error(),
+		})
 	}
 
-	return ec.JSON(res.Code, res)
+	baseUrl := os.Getenv("GOOGLE_FRONTEND_REDIRECT_URL")
+	baseUrl += "?token=" + res.Token + "&expiredAt=" + res.Expire.Format(time.RFC3339)
+
+	return ec.Redirect(http.StatusTemporaryRedirect, baseUrl)
 }
 
 func (ox *AuthCtrlImpl) GetDetailUser(ec echo.Context) error {
@@ -302,6 +327,92 @@ func (ox *AuthCtrlImpl) GetDetailUser(ec echo.Context) error {
 	res, err := ox.UserSvc.GetDetailUser(ctx)
 	if err != nil {
 		slog.Error("GetDetailUser - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) ForgotPassword(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ForgotPassword - something went wrong", r)
+		}
+	}()
+
+	var req service.ForgotPasswordReq
+
+	if err := ec.Bind(&req); err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors.Error(),
+		})
+	}
+
+	res, err := ox.UserSvc.ForgotPasswordUser(ctx, req.Email)
+	if err != nil {
+		slog.Error("ForgotPassword - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) RequestResetPassword(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("RequestResetPassword - something went wrong", r)
+		}
+	}()
+
+	var req service.ResetPasswordRequest
+
+	if err := ec.Bind(&req); err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+
+		var errMsg string
+		if strings.Contains(errors.Error(), "Password") {
+			errMsg = "Password is not valid, must be at least 8 characters, contains uppercase, lowercase, number, and special character"
+		}
+		slog.Error("UserRegistration - something went wrong", "error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: errMsg,
+			Error:   errors.Error(),
+		})
+	}
+
+	res, err := ox.UserSvc.ResetPasswordUser(ctx, req)
+	if err != nil {
+		slog.Error("RequestResetPassword - something went wrong", "error", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

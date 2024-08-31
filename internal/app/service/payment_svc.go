@@ -12,6 +12,7 @@ import (
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
 	"mahir-trade-be/pkg/middleware"
+	random "math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -92,6 +93,15 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 		return resp, err
 	}
 
+	if user.PhoneNumber == "" {
+		source := random.NewSource(time.Now().UnixNano())
+		random := random.New(source)
+		randomNumber := random.Intn(10000000000)
+		randomNumberString := fmt.Sprintf("%010d", randomNumber)
+
+		user.PhoneNumber = fmt.Sprintf("08%s", randomNumberString)
+	}
+
 	paymentCode, err := generatePaymentCode(user.PhoneNumber)
 	if err != nil {
 		resp.Code = http.StatusInternalServerError
@@ -105,12 +115,12 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 	req := models.MidtransGeneratePaymentLinkRequest{
 		TransactionDetails: models.TransactionDetails{
 			OrderID:     paymentCode,
-			GrossAmount: packageData.Price,
+			GrossAmount: packageData.DiscountedPrice,
 		},
 		ItemDetails: []models.ItemDetails{
 			{
 				Name:     fmt.Sprintf("Package %d month", packageData.DurationInMonth),
-				Price:    packageData.Price,
+				Price:    packageData.DiscountedPrice,
 				Quantity: 1,
 			},
 		},

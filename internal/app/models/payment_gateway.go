@@ -41,9 +41,9 @@ type (
 	}
 
 	MidtransGeneratePaymentLinkResponse struct {
-		OrderID       string   `json:"order_id,omitempty"`
-		PaymentURL    string   `json:"payment_url,omitempty"`
-		ErrorMessages []string `json:"error_messages,omitempty"`
+		OrderID       string      `json:"order_id,omitempty"`
+		PaymentURL    string      `json:"payment_url,omitempty"`
+		ErrorMessages interface{} `json:"error_messages,omitempty"`
 	}
 
 	// callback

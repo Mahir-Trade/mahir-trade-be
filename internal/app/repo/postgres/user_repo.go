@@ -20,7 +20,8 @@ type (
 		GetUserByID(ctx context.Context, id int64) (user models.User, err error)
 		GetUserByUUID(ctx context.Context, uuid string) (user models.User, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error)
-		GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.User, totalCount int64, err error)
+		GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.GetUsersBOResponse, totalCount int64, err error)
+		UpdatePassword(ctx context.Context, password string, operator string, id int64) (isUpdated bool, err error)
 	}
 
 	UserRepoImpl struct {
@@ -115,7 +116,7 @@ func (u *UserRepoImpl) FindUserByEmailAndUsername(ctx context.Context, email, us
 	return user, nil
 }
 
-func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.User, totalCount int64, err error) {
+func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.GetUsersBOResponse, totalCount int64, err error) {
 	query := queries.QueryGetUsers
 	queryParams := []interface{}{}
 
@@ -125,7 +126,7 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 		queryParams = append(queryParams, strings.ToLower(req.Search))
 	}
 
-	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
+	query += fmt.Sprintf(" ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
 	queryParams = append(queryParams, req.Limit, int((req.Page-1)*req.Limit))
 
 	rows, err := u.QueryContext(ctx, query, queryParams...)
@@ -137,7 +138,7 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 	defer rows.Close()
 
 	for rows.Next() {
-		var user models.User
+		var user models.GetUsersBOResponse
 		err = rows.Scan(
 			&totalCount,
 			&user.UserID,
@@ -146,10 +147,10 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 			&user.Email,
 			&user.Username,
 			&user.IsActive,
+			&user.AccountType,
+			&user.MembershipExpiredData,
 			&user.CreatedAt,
 			&user.CreatedBy,
-			&user.UpdatedAt,
-			&user.UpdatedBy,
 		)
 		if err != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("[repo][GetAlltUser] while Scan, err: %v", err.Error()))
@@ -160,4 +161,22 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 	}
 
 	return
+}
+
+func (u *UserRepoImpl) UpdatePassword(ctx context.Context, password string, operator string, id int64) (isUpdated bool, err error) {
+	row, err := u.ExecContext(ctx, queries.QueryUpdatePassword, password, operator, id)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[repo][UpdatePassword] while ExecContext, err: %v", err.Error()))
+		return
+	}
+
+	affected, err := row.RowsAffected()
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[repo][UpdatePassword] while RowsAffected, err: %v", err.Error()))
+		return
+	}
+
+	isUpdated = affected > 0
+	return
+
 }

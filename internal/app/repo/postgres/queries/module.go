@@ -101,7 +101,7 @@ const (
 	LEFT JOIN
 		user_sub_modules usm ON sm.id = usm.sub_module_id AND usm.user_id = $3
 	WHERE
-		m.id = $4
+		m.id = $4 AND sm.deleted_at IS NULL
 	GROUP BY
 		m.id
 	ORDER BY

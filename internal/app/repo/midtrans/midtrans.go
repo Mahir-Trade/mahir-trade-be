@@ -99,6 +99,11 @@ func (m *MidtransRepoImpl) GeneratePaymentLink(ctx context.Context, req models.M
 		return res, err
 	}
 
+	if res.ErrorMessages != nil {
+		slog.ErrorContext(ctx, "[repo][midtrans][Generate PaymentLink] Error response body: ", res.ErrorMessages)
+		return res, fmt.Errorf("Failed to generate payment link, err : %v", res.ErrorMessages)
+	}
+
 	return res, nil
 }
 

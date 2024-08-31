@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io"
 	"log/slog"
 	"mahir-trade-be/internal/app/infra"
@@ -37,6 +38,7 @@ type (
 		SubModuleName string `json:"sub_module_name"`
 		Title         string `json:"title"`
 		VideoURL      string `json:"video_url"`
+		Status        string `json:"status,omitempty"`
 		CreatedBy     string `json:"created_by"`
 		UpdatedBy     string `json:"updated_by"`
 		CreatedAt     string `json:"created_at,omitempty"`
@@ -51,7 +53,7 @@ type (
 		CreateSubModule(ctx context.Context, req SubModuleRequest) (resp models.DefaultResponse, err error)
 		GetSubModuleByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
 		GetSubModules(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
-		GetSubModulesByModuleID(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error)
+		GetSubModulesByModuleID(ctx context.Context, moduleID int64, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		UpdateSubModule(ctx context.Context, id int64, req SubModuleRequest) (resp models.DefaultResponse, err error)
 
 		SoftDeleteSubModule(ctx context.Context, subModuleId int64) (resp models.DefaultResponse, err error)
@@ -121,6 +123,11 @@ func (s *SubModuleSvcImpl) CreateSubModule(ctx context.Context, req SubModuleReq
 		resp.Error = "Internal Server Error"
 		return
 	}
+
+	parsedURL := s.BucketRepo.URLParser(req.VideoURL)
+	fileName := strings.Split(parsedURL.Path, "/")[2]
+	go s.BucketRepo.StartTranscodingJob(s.GoogleCfg.VideoBucketName, fileName)
+
 	resp.Data = struct {
 		ID int `json:"id"`
 	}{
@@ -143,18 +150,63 @@ func (s *SubModuleSvcImpl) GetSubModuleByID(ctx context.Context, id int64) (resp
 		resp.Error = "Internal Server Error"
 		return
 	}
-	url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
-	if err != nil {
-		slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
-		resp.Code = http.StatusInternalServerError
-		resp.Message = "Internal Server Error, Please try again later"
-		resp.Error = "Internal Server Error"
-		return
+
+	resolutions := []string{"240p", "360p", "480p", "720p", "1080p"}
+	type source struct {
+		Resolution string `json:"resolution"`
+		URL        string `json:"url"`
 	}
 
-	subModule.VideoURL = url
+	var sources []source
+	for _, res := range resolutions {
+		videoUrl := subModule.VideoURL
+		bucketName := s.GoogleCfg.VideoBucketName
 
-	resp.Data = subModule
+		if res != "1080p" {
+			parsedURL := s.BucketRepo.URLParser(subModule.VideoURL)
+			index := strings.LastIndex(parsedURL.Path, ".mp4")
+			if index == -1 {
+				slog.Info("no mp4 found, skipping filename : %s", parsedURL.Path)
+				continue
+			}
+
+			newPath := parsedURL.Path[:index] + fmt.Sprintf("-%s", res) + parsedURL.Path[index:]
+			path := strings.Split(newPath, "/")
+			path[1] += "_transcoded"
+			newPath = strings.Join(path, "/")
+			videoUrl = fmt.Sprintf("https://%s%s", parsedURL.Host, newPath)
+			bucketName += "_transcoded"
+		}
+
+		url, err := s.BucketRepo.PresignedURL(ctx, bucketName, videoUrl)
+		if err != nil {
+			slog.ErrorContext(ctx, "[service][GetSubModuleByID] error while get presigned url err: %v", err)
+			resp.Code = http.StatusInternalServerError
+			resp.Message = "Internal Server Error, Please try again later"
+			resp.Error = "Internal Server Error"
+
+			break
+		}
+
+		sources = append(sources, source{
+			Resolution: res,
+			URL:        url,
+		})
+	}
+
+	resp.Data = struct {
+		ID            int64    `json:"id"`
+		ModuleID      int64    `json:"module_id"`
+		SubModuleName string   `json:"sub_module_name"`
+		Title         string   `json:"title"`
+		Sources       []source `json:"sources"`
+	}{
+		ID:            subModule.ID,
+		ModuleID:      subModule.ModuleID.Int64,
+		SubModuleName: subModule.SubModuleName,
+		Title:         subModule.Title,
+		Sources:       sources,
+	}
 	return
 }
 
@@ -167,8 +219,6 @@ func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.Paginat
 		dataResp.Code = http.StatusOK
 		dataResp.Message = "Success"
 		dataResp.Data = struct{}{}
-
-		req.Page = req.Page - 1
 	}
 
 	subModules, totalData, err := s.SubModuleRepo.GetSubModules(ctx, req)
@@ -186,7 +236,6 @@ func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.Paginat
 			UUID:          subModule.UUID,
 			SubModuleName: subModule.SubModuleName,
 			Title:         subModule.Title,
-			VideoURL:      subModule.VideoURL,
 			CreatedBy:     subModule.CreatedBy,
 			UpdatedBy:     subModule.UpdatedBy,
 			CreatedAt:     subModule.CreatedAt,
@@ -201,20 +250,29 @@ func (s *SubModuleSvcImpl) GetSubModules(ctx context.Context, req models.Paginat
 			submoduleData.ModuleID = module.ID
 			submoduleData.ModuleName = module.ModuleName
 		}
+
+		if subModule.VideoURL != "" {
+			url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
+			if err != nil {
+				slog.ErrorContext(ctx, "[service][GetSubModules] error while get presigned url err: %v", err)
+			}
+			submoduleData.VideoURL = url
+		}
+
 		submodulesData = append(submodulesData, submoduleData)
 	}
 
 	{
 		dataResp.Data = submodulesData
-		resp.Page = uint(req.Page) + 1
+		resp.Page = uint(req.Page)
 		resp.Limit = uint(req.Limit)
 
 		totalPage := math.Ceil(float64(totalData) / float64(req.Limit))
 		resp.TotalPages = uint(totalPage)
 
-		resp.TotalItems = uint(len(submodulesData))
-		resp.HasNext = resp.Page < resp.TotalPages
-		resp.HasPrevious = resp.Page > 1
+		resp.TotalItems = uint(totalData)
+		resp.HasNext = req.Page < int64(resp.TotalPages)
+		resp.HasPrevious = req.Page > 1
 		resp.Results = dataResp
 	}
 
@@ -297,22 +355,24 @@ func (s *SubModuleSvcImpl) SoftDeleteSubModule(ctx context.Context, subModuleId 
 	return
 }
 
-func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID int64) (resp models.DefaultResponse, err error) {
+func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID int64, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error) {
 	var (
+		dataResp       models.DefaultResponse
 		submodulesData []SubModuleResponse
 	)
 	{
-		resp.Code = http.StatusOK
-		resp.Message = "Success"
-		resp.Data = struct{}{}
+		dataResp.Code = http.StatusOK
+		dataResp.Message = "Success"
+		dataResp.Data = struct{}{}
 	}
 
-	subModules, err := s.SubModuleRepo.GetSubModulesByModuleID(ctx, moduleID)
+	userID := ctx.Value(middleware.UserData).(middleware.UserCtxReq).UserID
+	subModules, totalCount, err := s.SubModuleRepo.GetSubModulesByModuleID(ctx, moduleID, userID, req)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][GetSubModulesByModuleID] error while get sub modules by module id err: %v", err)
-		resp.Code = http.StatusNotFound
-		resp.Message = "Data Not Found"
-		resp.Error = "Data Not Found"
+		dataResp.Code = http.StatusNotFound
+		dataResp.Message = "Data Not Found"
+		dataResp.Error = "Data Not Found"
 		return
 	}
 
@@ -322,7 +382,7 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 			UUID:          subModule.UUID,
 			SubModuleName: subModule.SubModuleName,
 			Title:         subModule.Title,
-			VideoURL:      subModule.VideoURL,
+			Status:        subModule.Status,
 			CreatedBy:     subModule.CreatedBy,
 			UpdatedBy:     subModule.UpdatedBy,
 			CreatedAt:     subModule.CreatedAt,
@@ -336,12 +396,32 @@ func (s *SubModuleSvcImpl) GetSubModulesByModuleID(ctx context.Context, moduleID
 			}
 			submoduleData.ModuleID = module.ID
 			submoduleData.ModuleName = module.ModuleName
-			submodulesData = append(submodulesData, submoduleData)
 		}
+
+		if subModule.VideoURL != "" {
+			url, err := s.BucketRepo.PresignedURL(ctx, s.GoogleCfg.VideoBucketName, subModule.VideoURL)
+			if err != nil {
+				slog.ErrorContext(ctx, "[service][GetSubModulesByModuleID] error while get presigned url err: %v", err)
+			}
+			submoduleData.VideoURL = url
+		}
+
+		submodulesData = append(submodulesData, submoduleData)
+
 	}
 
 	{
-		resp.Data = submodulesData
+		dataResp.Data = submodulesData
+		resp.Page = uint(req.Page)
+		resp.Limit = uint(req.Limit)
+
+		totalPage := math.Ceil(float64(totalCount) / float64(req.Limit))
+		resp.TotalPages = uint(totalPage)
+
+		resp.TotalItems = uint(totalCount)
+		resp.HasNext = req.Page < int64(resp.TotalPages)
+		resp.HasPrevious = req.Page > 1
+		resp.Results = dataResp
 	}
 
 	return
@@ -452,8 +532,10 @@ func (s *SubModuleSvcImpl) UploadFile(ctx context.Context, req google.FileUpload
 
 	if strings.Contains(contentType, "video") {
 		req.BucketName = s.GoogleCfg.VideoBucketName
-	} else {
+	} else if strings.Contains(contentType, "image") || strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "png") || strings.Contains(contentType, "jpg") {
 		req.BucketName = s.GoogleCfg.ImageBucketName
+	} else {
+		req.BucketName = s.GoogleCfg.FileBucketName
 	}
 
 	url, err := s.BucketRepo.UploadFile(ctx, req, src)

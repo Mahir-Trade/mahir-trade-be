@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
@@ -49,6 +50,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 
 			ctx := c.Request().Context()
 			if len(role) == 0 {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] len role is 0")
 				errResponse.Message = "Unauthorized"
 				return c.JSON(http.StatusUnauthorized, errResponse)
 			}
@@ -66,23 +68,27 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 			}
 			authHeader := c.Request().Header.Get("Authorization")
 			if authHeader == "" {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] missing authorization header")
 				errResponse.Message = "Missing Authorization header"
 				return c.JSON(http.StatusUnauthorized, errResponse)
 			}
 
 			splitHeader := strings.Split(authHeader, " ")
 			if len(splitHeader) != 2 {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] invalid authorization header format")
 				errResponse.Message = "Invalid Authorization header format"
 				return c.JSON(http.StatusUnauthorized, errResponse)
 			}
 
 			if splitHeader[0] != "Bearer" {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] invalid authorization scheme")
 				errResponse.Message = "Invalid Authorization scheme"
 				return c.JSON(http.StatusUnauthorized, errResponse)
 			}
 
 			token, err := utils.Verify(splitHeader[1])
 			if err != nil {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] error verify token", err)
 				errResponse.Message = "Unauthorized"
 				errResponse.Error = err.Error()
 				return c.JSON(http.StatusUnauthorized, errResponse)
@@ -90,6 +96,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 
 			err = token.Valid()
 			if err != nil {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] error validate token", err)
 				errResponse.Message = "Unauthorized"
 				errResponse.Error = err.Error()
 				return c.JSON(http.StatusUnauthorized, errResponse)
@@ -98,6 +105,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 			var userCtx UserCtxReq
 			bt, err := json.Marshal(token.Data)
 			if err != nil {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] error marshal token data", err)
 				errResponse.Message = "Unauthorized"
 				errResponse.Error = err.Error()
 				return c.JSON(http.StatusUnauthorized, errResponse)
@@ -105,12 +113,14 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 
 			err = json.Unmarshal(bt, &userCtx)
 			if err != nil {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] error unmarshal token data", err)
 				errResponse.Message = "Unauthorized"
 				errResponse.Error = err.Error()
 				return c.JSON(http.StatusUnauthorized, errResponse)
 			}
 
 			if userCtx.UserID == 0 {
+				slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] empty user id")
 				errResponse.Message = "Unauthorized"
 				errResponse.Error = "Invalid user id"
 				return c.JSON(http.StatusUnauthorized, errResponse)
@@ -119,6 +129,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 			if len(role) == 1 && role[0] == "admin" {
 				adminData, errGetAdmin := m.AdminRepo.FindByUsername(ctx, userCtx.Username)
 				if errGetAdmin != nil {
+					slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] error get admin data", errGetAdmin)
 					errResponse.Message = "Unauthorized"
 					errResponse.Error = "Invalid role"
 					return c.JSON(http.StatusUnauthorized, errResponse)
@@ -131,6 +142,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 			} else if len(role) == 1 && role[0] == "user" {
 				userData, errGetUser := m.UserRepo.FindUserByEmailOrUsername(ctx, userCtx.Email)
 				if errGetUser != nil {
+					slog.ErrorContext(ctx, "[Middleware][AuthAdminOrUser] error get user data", errGetUser)
 					errResponse.Message = "Unauthorized"
 					errResponse.Error = "Invalid role"
 					return c.JSON(http.StatusUnauthorized, errResponse)
