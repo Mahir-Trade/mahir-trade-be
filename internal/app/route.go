@@ -36,6 +36,7 @@ func setRoute(
 		users.GET("/login/google-callback", authCtrl.CallbackGoogle)
 		users.POST("/forgot-password", authCtrl.ForgotPassword)
 		users.POST("/reset-password", authCtrl.RequestResetPassword)
+		users.POST("/verify-email", authCtrl.SetUserVerified)
 
 		// Dashboard
 		users.GET("/detail", authCtrl.GetDetailUser, middleware.AuthAdminOrUser("user"))

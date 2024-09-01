@@ -54,6 +54,11 @@ type (
 		PasswordConfirmation string `json:"password_confirmation" validate:"required,min=8,max=20,uppercase,lowercase,number,specialchar"`
 	}
 
+	UserVerificationReq struct {
+		Email       string `json:"email" validate:"required"`
+		ExpiredTime string `json:"expired_time" validate:"required"`
+	}
+
 	UserSvc interface {
 		UserRegistration(ctx context.Context, req models.UserRegistrationRequest) (resp models.DefaultResponse, err error)
 		UserLogin(ctx context.Context, req LoginReq) (resp models.DefaultResponse, err error)
@@ -69,6 +74,7 @@ type (
 		UpdateMembership(ctx context.Context) (err error)
 		ForgotPasswordUser(ctx context.Context, email string) (resp models.DefaultResponse, err error)
 		ResetPasswordUser(ctx context.Context, req ResetPasswordRequest) (resp models.DefaultResponse, err error)
+		UserVerification(ctx context.Context, req UserVerificationReq) (resp models.DefaultResponse, err error)
 	}
 
 	UserSvcImpl struct {
@@ -89,9 +95,11 @@ func NewUserSvc(impl UserSvcImpl) UserSvc {
 }
 
 func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.UserRegistrationRequest) (resp models.DefaultResponse, err error) {
+
+	const EMAIL_VERIFICATION = "email_verification"
 	{
 		resp.Code = http.StatusCreated
-		resp.Message = "success"
+		resp.Message = "please check your email for verification"
 	}
 
 	if req.Password != req.PasswordConfirmation {
@@ -117,7 +125,7 @@ func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.UserRegis
 		}
 	}
 
-	userId, err := u.UserRepo.CreateUser(ctx, models.User{
+	_, err = u.UserRepo.CreateUser(ctx, models.User{
 		Email:       req.Email,
 		PhoneNumber: req.PhoneNumber,
 		Username:    req.Username,
@@ -132,27 +140,72 @@ func (u *UserSvcImpl) UserRegistration(ctx context.Context, req models.UserRegis
 		return resp, err
 	}
 
-	token, exp, err := utils.Sign(JWTData{
-		Email:   req.Email,
-		UserID:  int64(userId),
-		Usename: req.Username,
-	})
+	// Send Email Confirmation
+	encryptedEmail, err := utils.EncryptAES256CBC(req.Email, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][Sign] err : %v", err))
 		resp.Code = http.StatusInternalServerError
-		resp.Message = utils.ErrorInternalServer
+		resp.Message = "internal server error"
 		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][EncryptAES256CBC] err : %v", err))
 
 		return
 	}
 
-	resp.Data = struct {
-		Token  string    `json:"token"`
-		Expire time.Time `json:"expire"`
-	}{
-		Token:  token,
-		Expire: exp,
+	expirationVerification := time.Now().Add(time.Hour * 4).Format(time.RFC3339)
+	encryptedExpiration, err := utils.EncryptAES256CBC(expirationVerification, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][EncryptAES256CBC] err : %v", err))
+
+		return
 	}
+
+	encryptedEmail = url.QueryEscape(encryptedEmail)
+	encryptedExpiration = url.QueryEscape(encryptedExpiration)
+
+	values := map[string]interface{}{
+		"username":    req.Username,
+		"expiredLink": expirationVerification,
+		"verifyLink":  fmt.Sprintf("%s?verified=true&email=%s&expiredTime=%s", os.Getenv("EMAIL_VERIFICATION_URL"), encryptedEmail, encryptedExpiration),
+	}
+
+	emailTemplate, err := u.EmailTemplateRepo.GetByKey(ctx, EMAIL_VERIFICATION)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][GetByKey] err : %v", err))
+
+		return
+	}
+
+	parsedHtml, err := utils.MappingValuesToTemplate(values, emailTemplate)
+	if err != nil {
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "internal server error"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][MappingValuesToTemplate] err : %v", err))
+
+		return
+	}
+
+	sendgridReq := models.SendgridSendEmailRequest{
+		From:          os.Getenv("SENDGRID_SENDER_EMAIL"),
+		To:            req.Email,
+		Subject:       "Mahir Trade Email Verification",
+		Body:          parsedHtml,
+		SenderName:    os.Getenv("SENDGRID_SENDER_NAME"),
+		RecepientName: req.Username,
+	}
+
+	go func() {
+		err = u.SendgridRepo.SendEmail(ctx, sendgridReq)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][SendEmail] err : %v", err))
+		}
+	}()
 
 	return resp, nil
 }
@@ -924,6 +977,116 @@ func (u *UserSvcImpl) ResetPasswordUser(ctx context.Context, req ResetPasswordRe
 		resp.Error = errors.New("internal server error").Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][CheckUpdatePassword] err : %v", err))
 		return
+	}
+
+	return
+}
+
+func (u *UserSvcImpl) UserVerification(ctx context.Context, req UserVerificationReq) (resp models.DefaultResponse, err error) {
+	{
+		resp.Code = http.StatusOK
+		resp.Message = "success"
+	}
+
+	dataEmail, err := url.QueryUnescape(req.Email)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserVerification][QueryUnescape][QueryOne] err : %v", err))
+		return
+	}
+
+	dataExpiration, err := url.QueryUnescape(req.ExpiredTime)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserVerification][QueryUnescape][QueryTwo] err : %v", err))
+		return
+	}
+
+	email, err := utils.DecryptAES256CBC(dataEmail, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][DecryptAES256CBC] err : %v", err))
+
+		return resp, err
+	}
+
+	expiration, err := utils.DecryptAES256CBC(dataExpiration, os.Getenv("JWT_ENCRYPT_KEY"), os.Getenv("JWT_ENCRYPT_IV"))
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][DecryptAES256CBC] err : %v", err))
+
+		return resp, err
+	}
+
+	timeParsed, err := time.Parse(time.RFC3339, expiration)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "invalid token"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][ParseTime] err : %v", err))
+
+		return resp, err
+	}
+
+	if time.Now().After(timeParsed) {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "illegal token or token expired"
+		resp.Error = fmt.Errorf("illegal token or token expired").Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][CheckTokenExpired] err : %v", err))
+
+		return resp, err
+	}
+
+	user, err := u.UserRepo.FindUserByEmailOrUsername(ctx, email)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "illegal token or token expired"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][ResetPasswordUser][FindUserByEmailOrUsername] err : %v", err))
+
+		return resp, err
+	}
+
+	if user.VerifiedAt == nil {
+		err = u.UserRepo.SetUserVerified(ctx, user.UserID)
+		if err != nil {
+			resp.Code = http.StatusInternalServerError
+			resp.Message = "internal server error"
+			resp.Error = err.Error()
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UserVerification][SetUserVerified] err : %v", err))
+
+			return resp, err
+		}
+	}
+
+	token, exp, err := utils.Sign(JWTData{
+		Email:   req.Email,
+		UserID:  int64(user.UserID),
+		Usename: user.Username,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserRegistration][Sign] err : %v", err))
+		resp.Code = http.StatusInternalServerError
+		resp.Message = utils.ErrorInternalServer
+		resp.Error = err.Error()
+
+		return
+	}
+
+	resp.Data = struct {
+		Token  string    `json:"token"`
+		Expire time.Time `json:"expire"`
+	}{
+		Token:  token,
+		Expire: exp,
 	}
 
 	return

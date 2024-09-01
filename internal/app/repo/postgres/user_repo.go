@@ -22,6 +22,7 @@ type (
 		UpdateTypeUser(ctx context.Context, isActive bool, operator string, id int64) (typeUser bool, err error)
 		GetAllUser(ctx context.Context, req models.PaginationRequest) (users []models.GetUsersBOResponse, totalCount int64, err error)
 		UpdatePassword(ctx context.Context, password string, operator string, id int64) (isUpdated bool, err error)
+		SetUserVerified(ctx context.Context, userId int64) (err error)
 	}
 
 	UserRepoImpl struct {
@@ -60,7 +61,7 @@ func (u *UserRepoImpl) CreateUser(ctx context.Context, req models.User) (id int,
 
 func (u *UserRepoImpl) FindUserByEmailOrUsername(ctx context.Context, req string) (user models.User, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryFindUserByEmailOrUsename, req)
-	err = row.Scan(&user.UserID, &user.UUID, &user.PhoneNumber, &user.Username, &user.Email, &user.Password)
+	err = row.Scan(&user.UserID, &user.UUID, &user.PhoneNumber, &user.Username, &user.Email, &user.Password, &user.VerifiedAt)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while FindUserByEmailOrUsername err: %v", err.Error()))
 		return user, err
@@ -179,4 +180,14 @@ func (u *UserRepoImpl) UpdatePassword(ctx context.Context, password string, oper
 	isUpdated = affected > 0
 	return
 
+}
+
+func (u *UserRepoImpl) SetUserVerified(ctx context.Context, userId int64) (err error) {
+	_, err = u.ExecContext(ctx, queries.QuerySetUserVerified, userId)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[repo][SetUserVerified] while ExecContext, err: %v", err.Error()))
+		return
+	}
+
+	return
 }

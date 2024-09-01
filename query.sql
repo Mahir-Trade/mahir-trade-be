@@ -7,6 +7,7 @@ CREATE TABLE "users" (
   "password" varchar(255) NOT NULL,
   "email" varchar(255) NOT NULL UNIQUE,
   "username" varchar(255) NOT NULL,
+  "verified_at" timestamp,
   "is_active" bool DEFAULT false,
   "created_at" timestamp DEFAULT now(),
   "created_by" varchar(100) default 'SYSTEM',
