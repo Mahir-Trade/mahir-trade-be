@@ -229,6 +229,16 @@ func (u *UserSvcImpl) UserLogin(ctx context.Context, req LoginReq) (resp models.
 		return
 	}
 
+	if user.VerifiedAt == nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserLogin][VerifiedAt] err : %v", err))
+		err = fmt.Errorf("please verify your email first")
+		resp.Code = http.StatusUnauthorized
+		resp.Message = "please verify your email first"
+		resp.Error = err
+
+		return
+	}
+
 	if err = utils.VerifyPassword(req.Password, user.Password); err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][UserLogin][VerifyPassword] err : %v", err))
 		err = fmt.Errorf("invalid email or password")
@@ -655,6 +665,12 @@ func (u *UserSvcImpl) CallbackGoogle(ctx context.Context, req GoogleLoginReq) (r
 	userId, err := u.UserRepo.CreateUser(ctx, userReq)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][CreateUser] err : %v", err))
+		return
+	}
+
+	err = u.UserRepo.SetUserVerified(ctx, int64(userId))
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CallbackGoogle][SetUserVerified] err : %v", err))
 		return
 	}
 
