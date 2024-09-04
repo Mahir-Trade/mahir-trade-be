@@ -742,12 +742,13 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 	}
 
 	userDetailResp = models.UserDetailResponse{
-		UserID:      user.UserID,
-		UUID:        user.UUID,
-		Email:       user.Email,
-		PhoneNumber: user.PhoneNumber,
-		Username:    user.Username,
-		IsActive:    user.IsActive,
+		UserID:              user.UserID,
+		UUID:                user.UUID,
+		Email:               user.Email,
+		PhoneNumber:         user.PhoneNumber,
+		Username:            user.Username,
+		IsActive:            user.IsActive,
+		MembershipExpiredAt: userMembership.ExpiredAt,
 	}
 
 	if !userMembership.IsMembershipActive || userMembership.ID == 0 {
