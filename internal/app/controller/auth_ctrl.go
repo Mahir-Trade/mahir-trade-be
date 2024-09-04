@@ -35,6 +35,7 @@ type (
 		GetDetailUser(ec echo.Context) error
 		ForgotPassword(ec echo.Context) error
 		RequestResetPassword(ec echo.Context) error
+		SetUserVerified(ec echo.Context) error
 	}
 
 	AuthCtrlImpl struct {
@@ -411,6 +412,48 @@ func (ox *AuthCtrlImpl) RequestResetPassword(ec echo.Context) error {
 	}
 
 	res, err := ox.UserSvc.ResetPasswordUser(ctx, req)
+	if err != nil {
+		slog.Error("RequestResetPassword - something went wrong", "error", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AuthCtrlImpl) SetUserVerified(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("RequestResetPassword - something went wrong", r)
+		}
+	}()
+
+	var req service.UserVerificationReq
+
+	if err := ec.Bind(&req); err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		errors := err.(validator.ValidationErrors)
+
+		slog.Error("UserRegistration - something went wrong", "error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors.Error(),
+		})
+	}
+
+	res, err := ox.UserSvc.UserVerification(ctx, req)
 	if err != nil {
 		slog.Error("RequestResetPassword - something went wrong", "error", err)
 		return ec.JSON(http.StatusBadRequest, res)

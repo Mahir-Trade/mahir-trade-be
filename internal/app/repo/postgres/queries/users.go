@@ -6,7 +6,7 @@ const (
 	`
 
 	QueryFindUserByEmailOrUsename = `
-		SELECT user_id, uuid, phone_number, username, email, password FROM users WHERE email = $1 OR username = $1
+		SELECT user_id, uuid, phone_number, username, email, password, verified_at FROM users WHERE email = $1 OR username = $1
 	`
 
 	QueryFindUserByEmailAndUsername = `
@@ -55,5 +55,11 @@ const (
 		UPDATE users
 		SET password = $1, updated_by = $2, updated_at = NOW()
 		WHERE user_id = $3
+	`
+
+	QuerySetUserVerified = `
+		UPDATE users
+		SET verified_at = NOW()
+		WHERE user_id = $1
 	`
 )
