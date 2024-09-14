@@ -789,13 +789,50 @@ func (u *UserSvcImpl) GetDetailUserForBO(ctx context.Context, userID int64) (res
 }
 
 func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
-	slog.InfoContext(ctx, "[service][UpdateMembership] [cron] start update membership")
-	err = u.UserMembershipRepo.UpdateBulkUserMembership(ctx)
+	slog.InfoContext(ctx, "[service][UpdateMembership][cron] start update membership")
+
+	userMemberships, err := u.UserMembershipRepo.GetUserMembershipExpired(ctx)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][UpdateBulkUserMembership] err : %v", err))
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][GetUserMembershipExpired] err : %v", err))
 		return
 	}
-	slog.InfoContext(ctx, "[service][UpdateMembership] [cron] finish update membership")
+
+	for _, userMembership := range userMemberships {
+		err = u.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, models.UserMembership{
+			UserID:             userMembership.UserID,
+			IsMembershipActive: false,
+			ExpiredAt:          userMembership.ExpiredAt,
+			UpdatedBy:          "CRONJOB",
+		})
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][UpdateUserMembership] err : %v", err))
+			break
+		}
+
+		discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, userMembership.UserID)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][GetDiscordAccountByUserID] err : %v", err))
+			break
+		}
+
+		if discordAccount.ID == 0 {
+			continue
+		}
+
+		err = u.DiscordRepo.RemoveRoleFromMember(discord.DiscordRoleRequest{UserID: discordAccount.DiscordAccountID})
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][RemoveRoleFromMember] userID: %d, err : %v", userMembership.UserID, err))
+			break
+		}
+
+		err = u.DiscordAccountrepo.DeleteDiscordAccountByUserID(ctx, discordAccount.ID)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][DeleteDiscordAccountByUserID] userID: %d, err : %v", userMembership.UserID, err))
+			break
+		}
+	}
+
+	slog.InfoContext(ctx, "[service][UpdateMembership][cron] finish update membership")
 	return
 }
 

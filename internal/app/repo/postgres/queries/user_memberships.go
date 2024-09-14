@@ -9,7 +9,7 @@ const (
 
 	QueryUpdateUserMembershipExpired = `
 		UPDATE user_memberships
-		SET expired_at = $1, is_membership_active = $2, updated_by = $3
+		SET expired_at = $1, is_membership_active = $2, updated_by = $3, updated_at = NOW()
 		WHERE user_id = $4
 		RETURNING id
 	`
@@ -35,5 +35,12 @@ const (
 	QueryGetUserMemberships = `
 		SELECT id, expired_at FROM user_memberships
 		WHERE deleted_at IS NULL
+	`
+
+	QueryGetUserMembershipExpired = `
+		SELECT id, user_id, expired_at, is_membership_active FROM user_memberships
+		WHERE expired_at < NOW()
+			AND is_membership_active = true
+			AND deleted_at IS NULL;
 	`
 )

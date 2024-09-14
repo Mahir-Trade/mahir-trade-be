@@ -16,6 +16,7 @@ type (
 		UpdateUserMembershipByUserID(ctx context.Context, req models.UserMembership) (err error)
 		UpdateBulkUserMembership(ctx context.Context) (err error)
 		GetUserMembershipByUserID(ctx context.Context, userID int64) (resp models.UserMembership, err error)
+		GetUserMembershipExpired(ctx context.Context) (resp []models.UserMembership, err error)
 	}
 
 	UserMembershipRepoImpl struct {
@@ -117,4 +118,27 @@ func (u *UserMembershipRepoImpl) UpdateBulkUserMembership(ctx context.Context) (
 	}
 
 	return nil
+}
+
+func (u *UserMembershipRepoImpl) GetUserMembershipExpired(ctx context.Context) (resp []models.UserMembership, err error) {
+	rows, err := u.QueryContext(ctx, queries.QueryGetUserMembershipExpired)
+	if err != nil {
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][GetUserMembershipExpired] error while QueryContext", "%v", err.Error())
+		return resp, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var userMembership models.UserMembership
+		err = rows.Scan(&userMembership.ID, &userMembership.UserID, &userMembership.ExpiredAt, &userMembership.IsMembershipActive)
+		if err != nil {
+			slog.ErrorContext(ctx, "[userMembershipRepoImpl][GetUserMembershipExpired] error while Scan", "%v", err.Error())
+			return resp, err
+		}
+
+		resp = append(resp, userMembership)
+	}
+
+	return resp, nil
 }
