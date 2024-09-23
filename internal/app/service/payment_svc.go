@@ -280,16 +280,24 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 			}
 
 			if userMembership.ID > 0 {
-				currExpiredAt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
-				if err != nil {
-					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while Parse expiredAt err : ", err)
-					return err
+				var expiredAt string
+
+				if !userMembership.IsMembershipActive {
+					expiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
+				} else {
+					currExpiredAt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
+					if err != nil {
+						slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while Parse expiredAt err : ", err)
+						return err
+					}
+
+					expiredAt = currExpiredAt.AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
 				}
 
 				userMembershipReq := models.UserMembership{
 					UserID:             order.UserID,
 					PackageID:          order.PackageID,
-					ExpiredAt:          currExpiredAt.AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime),
+					ExpiredAt:          expiredAt,
 					IsMembershipActive: true,
 					CreatedBy:          "SYSTEM",
 				}
