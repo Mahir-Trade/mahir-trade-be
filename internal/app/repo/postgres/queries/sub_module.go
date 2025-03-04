@@ -34,7 +34,7 @@ const (
 		WHERE 
 			sm.module_id = $1 
 			AND sm.deleted_at IS NULL
-		ORDER BY created_at DESC
+		ORDER BY created_at ASC
 		LIMIT $3 OFFSET $4;
 	`
 
