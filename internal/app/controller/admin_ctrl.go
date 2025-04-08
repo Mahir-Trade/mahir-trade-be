@@ -254,10 +254,12 @@ func (ox *AdminCtrlImpl) GetAllUsers(ec echo.Context) error {
 	}
 
 	search := ec.QueryParam("search")
+	isMembership := ec.QueryParam("isMembership")
 	req := models.PaginationRequest{
-		Limit:  limit,
-		Page:   page,
-		Search: search,
+		Limit:        limit,
+		Page:         page,
+		Search:       search,
+		IsMembership: isMembership == "true",
 	}
 
 	res, err := ox.AdminSvc.GetAllUsers(ctx, req)

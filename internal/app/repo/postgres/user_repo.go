@@ -127,6 +127,10 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 		queryParams = append(queryParams, strings.ToLower(req.Search))
 	}
 
+	if req.IsMembership {
+		query += " AND um.is_membership_active is true"
+	}
+
 	query += fmt.Sprintf(" ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
 	queryParams = append(queryParams, req.Limit, int((req.Page-1)*req.Limit))
 
