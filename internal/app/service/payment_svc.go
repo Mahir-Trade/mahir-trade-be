@@ -83,6 +83,25 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 		return resp, err
 	}
 
+	userMembership, err := p.UserMembershipRepo.GetUserMembershipByUserID(ctx, currUser.UserID)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] while GetUserMembershipByUserID err : ", err)
+
+		return resp, err
+	}
+
+	if userMembership.IsMembershipActive {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "bad request"
+		resp.Error = "user already has an active membership"
+		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] user already has an active membership")
+
+		return resp, fmt.Errorf("%s", resp.Error)
+	}
+
 	user, err := p.UserRepo.GetUserByID(ctx, currUser.UserID)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
