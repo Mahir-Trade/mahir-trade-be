@@ -17,6 +17,7 @@ type (
 		UpdateBulkUserMembership(ctx context.Context) (err error)
 		GetUserMembershipByUserID(ctx context.Context, userID int64) (resp models.UserMembership, err error)
 		GetUserMembershipExpired(ctx context.Context) (resp []models.UserMembership, err error)
+		BulkUpdateMembershipPreOrderActivation(ctx context.Context) (err error)
 	}
 
 	UserMembershipRepoImpl struct {
@@ -141,4 +142,27 @@ func (u *UserMembershipRepoImpl) GetUserMembershipExpired(ctx context.Context) (
 	}
 
 	return resp, nil
+}
+
+func (u *UserMembershipRepoImpl) BulkUpdateMembershipPreOrderActivation(ctx context.Context) (err error) {
+	tx, err := u.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][BulkUpdateMembershipPreOrderActivation] error while BeginTx", "%v", err.Error())
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, queries.QueryBulkUpdateMembershipPreOrderActivation)
+	if err != nil {
+		tx.Rollback()
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][BulkUpdateMembershipPreOrderActivation] error while ExecContext", "%v", err.Error())
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][BulkUpdateMembershipPreOrderActivation] error while Commit", "%v", err.Error())
+		return err
+	}
+
+	return nil
 }

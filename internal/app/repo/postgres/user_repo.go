@@ -127,8 +127,16 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 		queryParams = append(queryParams, strings.ToLower(req.Search))
 	}
 
-	if req.IsMembership {
-		query += " AND um.is_membership_active is true"
+	if req.MembershipStatus != "" {
+		query += fmt.Sprintf(" AND um.status = $%d", len(queryParams)+1)
+		switch strings.ToUpper(req.MembershipStatus) {
+		case string(models.MembershipStatusActive):
+			queryParams = append(queryParams, models.MembershipStatusActive)
+		case string(models.MembershipStatusPreOrder):
+			queryParams = append(queryParams, models.MembershipStatusPreOrder)
+		case string(models.MembershipStatusExpired):
+			queryParams = append(queryParams, models.MembershipStatusExpired)
+		}
 	}
 
 	query += fmt.Sprintf(" ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)

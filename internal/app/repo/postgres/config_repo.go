@@ -9,6 +9,7 @@ import (
 type (
 	ConfigRepo interface {
 		GetConfigByKey(key string) (string, error)
+		UpdateConfigByKey(key string, value string, operatedBy string) error
 	}
 
 	ConfigRepoImpl struct {
@@ -29,4 +30,12 @@ func (c *ConfigRepoImpl) GetConfigByKey(key string) (string, error) {
 		return "", err
 	}
 	return value, nil
+}
+
+func (c *ConfigRepoImpl) UpdateConfigByKey(key string, value string, operatedBy string) error {
+	_, err := c.Exec("UPDATE config SET value = $1, updated_at = NOW(), updated_by = $3 WHERE key = $2", value, key, operatedBy)
+	if err != nil {
+		return err
+	}
+	return nil
 }

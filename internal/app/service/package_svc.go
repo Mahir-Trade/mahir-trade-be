@@ -254,8 +254,13 @@ func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context) (bool, er
 
 	endDate, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while GetConfigByKey %s err : %v", utils.MembershipProgramEndDateConfig, err))
+		slog.InfoContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while GetConfigByKey %s err : %v", utils.MembershipProgramEndDateConfig, err))
 		return false, fmt.Errorf("failed to get %s: %w", utils.MembershipProgramEndDateConfig, err)
+	}
+
+	if startDate == "" || endDate == "" {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] %s or %s is empty", utils.MembershipProgramStartDateConfig, utils.MembershipProgramEndDateConfig))
+		return true, nil
 	}
 
 	layout := "2006-01-02"
@@ -274,7 +279,6 @@ func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context) (bool, er
 
 	currentTime := time.Now()
 
-	// Compare berdasarkan tanggal saja
 	currentDate := currentTime.Truncate(24 * time.Hour)
 	if currentDate.Before(startTime) || currentDate.After(endTime) {
 		return true, nil

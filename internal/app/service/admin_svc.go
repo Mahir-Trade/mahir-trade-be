@@ -33,13 +33,16 @@ type (
 		UpdateTypeUser(ctx context.Context, isActive bool, id int64) (resp models.DefaultResponse, err error)
 		GetDetailAdminInfo(ctx context.Context, username string) (resp models.DefaultResponse, err error)
 		GetAllUsers(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
+		StartMembershipProgram(ctx context.Context, req models.StartMembershipProgramRequest) (resp models.DefaultResponse, err error)
 	}
 
 	AdminSvcImpl struct {
 		dig.In
 
-		AdminRepo postgres.AdminRepo
-		UserRepo  postgres.UserRepo
+		AdminRepo          postgres.AdminRepo
+		UserRepo           postgres.UserRepo
+		ConfigRepo         postgres.ConfigRepo
+		UserMembershipRepo postgres.UserMembershipRepo
 	}
 )
 
@@ -255,6 +258,93 @@ func (a *AdminSvcImpl) GetAllUsers(ctx context.Context, req models.PaginationReq
 		resp.HasNext = req.Page < int64(resp.TotalPages)
 		resp.HasPrevious = req.Page > 1
 		resp.Results = dataResp
+	}
+
+	return
+}
+
+func (a *AdminSvcImpl) StartMembershipProgram(ctx context.Context, req models.StartMembershipProgramRequest) (resp models.DefaultResponse, err error) {
+	{
+		resp = models.DefaultResponse{
+			Code:    http.StatusOK,
+			Message: "Success",
+		}
+	}
+
+	adminData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		err = errors.New("failed to get admin data from context")
+		slog.ErrorContext(ctx, "[service][UpdateTypeUser] error while getting admin data from context: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	currStartStr, _ := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
+	currEndStr, _ := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
+
+	layout := "2006-01-02"
+	today := time.Now().Truncate(24 * time.Hour)
+
+	if currStartStr != "" && currEndStr != "" {
+		currStart, errStart := time.Parse(layout, currStartStr)
+		currEnd, errEnd := time.Parse(layout, currEndStr)
+
+		if errStart == nil && errEnd == nil {
+			if !today.Before(currStart) && !today.After(currEnd) {
+				err = errors.New("bad request")
+				resp.Code = http.StatusBadRequest
+				resp.Message = "Membership program already running"
+				resp.Error = err.Error()
+				return
+			}
+		}
+	}
+
+	startDate := today.Format(layout)
+
+	if req.EndDate == "" {
+		err = errors.New("end_date is required")
+		resp.Code = http.StatusBadRequest
+		resp.Message = "end_date is required"
+		resp.Error = err.Error()
+		return
+	}
+
+	_, err = time.Parse(layout, req.EndDate)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "Invalid end_date format (use YYYY-MM-DD)"
+		resp.Error = err.Error()
+		return
+	}
+
+	err = a.UserMembershipRepo.BulkUpdateMembershipPreOrderActivation(ctx)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][StartMembershipProgram] error while BulkUpdateMembershipPreOrderActivation err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	err = a.ConfigRepo.UpdateConfigByKey(utils.MembershipProgramStartDateConfig, startDate, adminData.Username)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][StartMembershipProgram] error while UpdateConfigByKey err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	err = a.ConfigRepo.UpdateConfigByKey(utils.MembershipProgramEndDateConfig, req.EndDate, adminData.Username)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][StartMembershipProgram] error while UpdateConfigByKey err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
 	}
 
 	return

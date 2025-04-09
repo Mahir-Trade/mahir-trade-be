@@ -43,4 +43,18 @@ const (
 			AND is_membership_active = true
 			AND deleted_at IS NULL;
 	`
+
+	QueryBulkUpdateMembershipPreOrderActivation = `
+		UPDATE user_memberships um
+		SET
+			is_membership_active = TRUE,
+			expired_at = now() + (p.duration_in_month || ' months')::interval,
+			updated_at = now(),
+			status = 'ACTIVE'
+		FROM packages p
+		WHERE
+			um.package_id = p.id
+			AND um.status = 'PRE_ORDER'
+			AND um.deleted_at IS NULL;
+		`
 )

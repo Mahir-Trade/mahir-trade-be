@@ -266,3 +266,14 @@ CREATE TABLE config (
 );
 
 INSERT INTO config (key, value) VALUES ('MEMBERSHIP_PROGRAM_START_DATE', ''), ('MEMBERSHIP_PROGRAM_END_DATE', '');
+
+CREATE TYPE membership_status AS ENUM (
+  'UNKNOWN',
+  'PRE_ORDER',
+  'ACTIVE',
+  'EXPIRED'
+);
+
+ALTER TABLE user_memberships ADD COLUMN status membership_status default 'UNKNOWN';
+
+CREATE INDEX idx_user_memberships_status ON user_memberships(status);
