@@ -252,3 +252,17 @@ CREATE INDEX "idx_order_uuid" ON "orders" ("uuid");
 CREATE INDEX "idx_transaction_uuid" ON "transactions" ("uuid");
 CREATE INDEX "idx_general_logs_uuid" ON "general_logs" ("uuid");
 CREATE INDEX "idx_admin_uuid" ON "admins" ("uuid");
+
+CREATE TABLE config (
+  id BIGSERIAL PRIMARY KEY,
+  key VARCHAR(255) NOT NULL UNIQUE,
+  value TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT now(),
+  created_by VARCHAR(100) DEFAULT 'SYSTEM',
+  updated_at TIMESTAMP DEFAULT now(),
+  updated_by VARCHAR(100) DEFAULT 'SYSTEM',
+  deleted_at TIMESTAMP,
+  deleted_by VARCHAR(100)
+);
+
+INSERT INTO config (key, value) VALUES ('MEMBERSHIP_PROGRAM_START_DATE', ''), ('MEMBERSHIP_PROGRAM_END_DATE', '');

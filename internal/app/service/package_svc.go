@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/internal/app/service/utils"
 	"math"
 	"net/http"
 	"time"
@@ -20,12 +21,14 @@ type (
 		GetPackageByID(ctx context.Context, packageId int64) (resp models.DefaultResponse, err error)
 		UpdatePackage(ctx context.Context, req models.Package) (resp models.DefaultResponse, err error)
 		DeletePackage(ctx context.Context, packageId int64, deletedBy string) (resp models.DefaultResponse, err error)
+		CheckPackageAvailability(ctx context.Context) (bool, error)
 	}
 
 	PackageSvcImpl struct {
 		dig.In
 
 		PackageRepo postgres.PackageRepo
+		ConfigRepo  postgres.ConfigRepo
 	}
 )
 
@@ -90,6 +93,17 @@ func (p *PackageSvcImpl) GetPackages(ctx context.Context, req models.PaginationR
 		return resp, err
 	}
 
+	isAvailable, _ := p.CheckPackageAvailability(ctx)
+	// if err != nil {
+	// 	slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackages] while CheckPackageAvailability err : %v", err.Error()))
+	// 	isAvailable = false
+	// }
+
+	// Set nilai IsAvailable ke setiap package
+	for i := range packages {
+		packages[i].IsAvailable = isAvailable
+	}
+
 	// mapping response
 	{
 		dataResp.Data = packages
@@ -123,6 +137,14 @@ func (p *PackageSvcImpl) GetPackageByID(ctx context.Context, packageId int64) (r
 
 		return resp, err
 	}
+
+	isAvailable, _ := p.CheckPackageAvailability(ctx)
+	// if err != nil {
+	// 	slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while CheckPackageAvailability err : %v", err.Error()))
+	// 	isAvailable = false
+	// }
+
+	packageData.IsAvailable = isAvailable
 
 	resp.Data = packageData
 
@@ -221,4 +243,42 @@ func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64, del
 func getDiscountExpired(t time.Time) time.Time {
 	firstDayNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
 	return firstDayNextMonth.Add(-time.Second)
+}
+
+func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context) (bool, error) {
+	startDate, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while GetConfigByKey %s err : %v", utils.MembershipProgramStartDateConfig, err))
+		return false, fmt.Errorf("failed to get %s: %w", utils.MembershipProgramStartDateConfig, err)
+	}
+
+	endDate, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while GetConfigByKey %s err : %v", utils.MembershipProgramEndDateConfig, err))
+		return false, fmt.Errorf("failed to get %s: %w", utils.MembershipProgramEndDateConfig, err)
+	}
+
+	layout := "2006-01-02"
+
+	startTime, err := time.Parse(layout, startDate)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while Parse %s err : %v", utils.MembershipProgramStartDateConfig, err))
+		return false, fmt.Errorf("failed to parse %s: %w", utils.MembershipProgramStartDateConfig, err)
+	}
+
+	endTime, err := time.Parse(layout, endDate)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while Parse %s err : %v", utils.MembershipProgramEndDateConfig, err))
+		return false, fmt.Errorf("failed to parse %s: %w", utils.MembershipProgramEndDateConfig, err)
+	}
+
+	currentTime := time.Now()
+
+	// Compare berdasarkan tanggal saja
+	currentDate := currentTime.Truncate(24 * time.Hour)
+	if currentDate.Before(startTime) || currentDate.After(endTime) {
+		return true, nil
+	}
+
+	return false, nil
 }
