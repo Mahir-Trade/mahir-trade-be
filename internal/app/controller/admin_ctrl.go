@@ -23,6 +23,7 @@ type (
 		GetDetailUserForBO(ec echo.Context) error
 		GetDetailAdminInfo(ec echo.Context) error
 		GetAllUsers(ec echo.Context) error
+		ToggleInactiveUserMembership(ec echo.Context) error
 		StartMembershipProgram(ec echo.Context) error
 	}
 
@@ -267,6 +268,47 @@ func (ox *AdminCtrlImpl) GetAllUsers(ec echo.Context) error {
 	res, err := ox.AdminSvc.GetAllUsers(ctx, req)
 	if err != nil {
 		slog.Error("GetAllUsers - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AdminCtrlImpl) ToggleInactiveUserMembership(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("ToggleInactiveUserMembership - something went wrong", r)
+		}
+	}()
+
+	var req service.ToggleUserMembershipRequest
+	if err := ec.Bind(&req); err != nil {
+		slog.ErrorContext(ctx, "[controller][ToggleInactiveUserMembership] error while ec.Bind(&req)", "error", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		slog.ErrorContext(ctx, "[controller][ToggleInactiveUserMembership] error while validate.Struct(req)", "error", err)
+		errors := err.(validator.ValidationErrors)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errors,
+		})
+	}
+
+	res, err := ox.AdminSvc.ToggleInactiveUserMembership(ctx, req)
+	if err != nil {
+		slog.Error("ToggleInactiveUserMembership - something went wrong", "error", err)
 		return ec.JSON(http.StatusBadRequest, res)
 	}
 

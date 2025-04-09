@@ -104,6 +104,7 @@ func setRoute(
 		admins.GET("/user-detail/:user_id", adminCtrl.GetDetailUserForBO, middleware.AuthAdminOrUser("admin"))
 		admins.GET("/users", adminCtrl.GetAllUsers, middleware.AuthAdminOrUser("admin"))
 
+		admins.POST("/users/toggle-expired", adminCtrl.ToggleInactiveUserMembership, middleware.AuthAdminOrUser("admin"))
 		admins.POST("/start-membership-program", adminCtrl.StartMembershipProgram, middleware.AuthAdminOrUser("admin"))
 	}
 
