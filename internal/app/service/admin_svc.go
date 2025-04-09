@@ -27,19 +27,24 @@ type (
 		IsActive bool `json:"is_active" validate:"required"`
 	}
 
+	ToggleUserMembershipRequest struct {
+		UserIds []int64 `json:"user_ids" validate:"required,dive"`
+	}
+
 	AdminSvc interface {
 		AdminLogin(ctx context.Context, req AdminLoginRequest) (resp models.DefaultResponse, err error)
 		AdminRegistration(ctx context.Context, req models.Admin) (resp models.DefaultResponse, err error)
 		UpdateTypeUser(ctx context.Context, isActive bool, id int64) (resp models.DefaultResponse, err error)
 		GetDetailAdminInfo(ctx context.Context, username string) (resp models.DefaultResponse, err error)
 		GetAllUsers(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
+		ToggleInactiveUserMembership(ctx context.Context, req ToggleUserMembershipRequest) (resp models.DefaultResponse, err error)
 	}
 
 	AdminSvcImpl struct {
 		dig.In
-
-		AdminRepo postgres.AdminRepo
-		UserRepo  postgres.UserRepo
+		AdminRepo          postgres.AdminRepo
+		UserRepo           postgres.UserRepo
+		UserMembershipRepo postgres.UserMembershipRepo
 	}
 )
 
@@ -258,4 +263,38 @@ func (a *AdminSvcImpl) GetAllUsers(ctx context.Context, req models.PaginationReq
 	}
 
 	return
+}
+
+func (a *AdminSvcImpl) ToggleInactiveUserMembership(ctx context.Context, req ToggleUserMembershipRequest) (resp models.DefaultResponse, err error) {
+	{
+		resp = models.DefaultResponse{
+			Code:    http.StatusOK,
+			Message: "Success",
+			Data:    struct{}{},
+		}
+	}
+
+	if len(req.UserIds) == 0 {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "User IDs are required"
+		return resp, errors.New("user IDs are required")
+	}
+
+	adminData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		err = errors.New("failed to get admin data from context")
+		slog.ErrorContext(ctx, "[service][ToggleInactiveUserMembership] error while getting admin data from context: %v", err)
+		resp.Code = http.StatusForbidden
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return resp, err
+	}
+
+	err = a.UserMembershipRepo.UpdateUserMembershipExpired(ctx, req.UserIds, adminData.Username)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "Failed to toggle user membership"
+	}
+
+	return resp, nil
 }

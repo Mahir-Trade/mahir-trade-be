@@ -43,4 +43,9 @@ const (
 			AND is_membership_active = true
 			AND deleted_at IS NULL;
 	`
+
+	QueryUpdateUserMembershipsByUserIDs = `
+		UPDATE user_memberships
+		SET is_membership_active = false, updated_by = $1, expired_at = NOW(), updated_at = NOW()
+	`
 )

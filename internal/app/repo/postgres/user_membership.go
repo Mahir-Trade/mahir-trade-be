@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres/queries"
+	"strings"
 
 	"go.uber.org/dig"
 )
@@ -17,6 +19,7 @@ type (
 		UpdateBulkUserMembership(ctx context.Context) (err error)
 		GetUserMembershipByUserID(ctx context.Context, userID int64) (resp models.UserMembership, err error)
 		GetUserMembershipExpired(ctx context.Context) (resp []models.UserMembership, err error)
+		UpdateUserMembershipExpired(ctx context.Context, userIds []int64, updatedBy string) (err error)
 	}
 
 	UserMembershipRepoImpl struct {
@@ -141,4 +144,30 @@ func (u *UserMembershipRepoImpl) GetUserMembershipExpired(ctx context.Context) (
 	}
 
 	return resp, nil
+}
+
+func (u *UserMembershipRepoImpl) UpdateUserMembershipExpired(ctx context.Context, userIds []int64, updatedBy string) (err error) {
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(queries.QueryUpdateUserMembershipsByUserIDs)
+	queryBuilder.WriteString(" WHERE deleted_at IS NULL AND user_id IN (")
+
+	placeholders := make([]string, len(userIds))
+	for i := range userIds {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+	}
+	queryBuilder.WriteString(strings.Join(placeholders, ", "))
+	queryBuilder.WriteString(")")
+
+	args := make([]interface{}, len(userIds)+1)
+	args[0] = updatedBy
+	for i, id := range userIds {
+		args[i+1] = id
+	}
+	_, err = u.ExecContext(ctx, queryBuilder.String(), args...)
+	if err != nil {
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][UpdateUserMembershipExpired] error while ExecContext", "%v", err.Error())
+		return err
+	}
+
+	return nil
 }
