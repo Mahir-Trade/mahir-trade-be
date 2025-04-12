@@ -3,6 +3,7 @@ package google
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"mahir-trade-be/internal/app/infra"
 	"mime/multipart"
@@ -40,6 +41,7 @@ type (
 	BucketRepo interface {
 		PresignedURL(ctx context.Context, bucketName, privateUrl string) (url string, err error)
 		UploadFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error)
+		UploadStreamFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error)
 		URLParser(fileURL string) (resp URLParserResponse)
 		StartTranscodingJob(bucketName, filename string)
 	}
@@ -133,6 +135,49 @@ func (b *BucketRepoImpl) UploadFile(ctx context.Context, form FileUpload, file m
 		return
 	}
 
+	return
+}
+
+func (b *BucketRepoImpl) UploadStreamFile(ctx context.Context, form FileUpload, file multipart.File) (url string, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+
+	client, err := storage.NewClient(ctx, option.WithCredentialsFile(os.Getenv("GOOGLE_SERVICE_ACCOUNT_FILE_PATH")))
+	if err != nil {
+		slog.ErrorContext(ctx, "[repo][google][UploadStreamFile][NewClient]", "err :", err)
+		return
+	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			slog.ErrorContext(ctx, "[repo][google][UploadStreamFile][Close]", "err :", err)
+		}
+	}()
+
+	bucket := client.Bucket(form.BucketName)
+	object := bucket.Object(form.Filename)
+
+	wc := object.NewWriter(ctx)
+	wc.ContentType = form.FileContentType
+
+	if _, err = io.Copy(wc, file); err != nil {
+		slog.ErrorContext(ctx, "[repo][google][UploadStreamFile][Copy] err :", "", err)
+		return
+	}
+
+	if err = wc.Close(); err != nil {
+		slog.ErrorContext(ctx, "[repo][google][UploadStreamFile][Close] err :", "", err)
+		return
+	}
+	if form.BucketName == b.GoogleCfg.FileBucketName {
+		url, err = b.PresignedURL(ctx, form.BucketName, fmt.Sprintf("https://storage.cloud.google.com/%s/%s", form.BucketName, form.Filename))
+		if err != nil {
+			slog.ErrorContext(ctx, "[repo][google][UploadFile][PresignedURL]", err)
+			err = fmt.Errorf("something went wrong, we will fix it soon")
+			return
+		}
+	} else {
+		url = fmt.Sprintf("https://storage.googleapis.com/%s/%s", form.BucketName, form.Filename)
+	}
 	return
 }
 

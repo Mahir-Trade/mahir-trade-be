@@ -103,7 +103,7 @@ func setRoute(
 		admins.GET("/detail", adminCtrl.GetDetailAdminInfo, middleware.AuthAdminOrUser("admin"))
 		admins.GET("/user-detail/:user_id", adminCtrl.GetDetailUserForBO, middleware.AuthAdminOrUser("admin"))
 		admins.GET("/users", adminCtrl.GetAllUsers, middleware.AuthAdminOrUser("admin"))
-    admins.POST("/users/toggle-expired", adminCtrl.ToggleInactiveUserMembership, middleware.AuthAdminOrUser("admin"))
+		admins.POST("/users/toggle-expired", adminCtrl.ToggleInactiveUserMembership, middleware.AuthAdminOrUser("admin"))
 	}
 
 	report := base.Group("/reports", middleware.AuthAdminOrUser("admin", "user"))
@@ -122,6 +122,7 @@ func setRoute(
 	}
 
 	base.POST("/upload", subModuleCtrl.UploadFile, middleware.AuthAdminOrUser("admin"))
+	base.POST("/upload/content", reportCtrl.UploadContent, middleware.AuthAdminOrUser("admin"))
 
 	// Public route
 	{

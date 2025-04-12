@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
@@ -21,6 +22,7 @@ type (
 		GetReportByID(ec echo.Context) error
 		UpdateReport(ec echo.Context) error
 		DeleteReport(ec echo.Context) error
+		UploadContent(ec echo.Context) error
 	}
 
 	ReportCtrlImpl struct {
@@ -72,6 +74,14 @@ func (r *ReportCtrlImpl) CreateReport(ec echo.Context) error {
 		})
 	}
 
+	if err := report.ValidateContents(); err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
 	report.CreatedBy = userData.Email
 	resp, err := r.ReportSvc.CreateReport(ctx, report)
 	if err != nil {
@@ -86,7 +96,7 @@ func (r *ReportCtrlImpl) GetReports(ec echo.Context) error {
 
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("GetPackages - something went wrong", r)
+			slog.Error("GetReports - something went wrong", r)
 		}
 	}()
 
@@ -110,7 +120,7 @@ func (r *ReportCtrlImpl) GetReports(ec echo.Context) error {
 
 	resp, err := r.ReportSvc.GetReports(ctx, req)
 	if err != nil {
-		slog.Error("GetPackages - something went wrong", err)
+		slog.Error("GetReports - something went wrong", err)
 		return ec.JSON(http.StatusBadRequest, resp)
 	}
 
@@ -228,6 +238,39 @@ func (r *ReportCtrlImpl) DeleteReport(ec echo.Context) error {
 	}
 
 	resp, err := r.ReportSvc.DeleteReport(ctx, id, userData.Email)
+	if err != nil {
+		return ec.JSON(resp.Code, resp)
+	}
+	return ec.JSON(http.StatusOK, resp)
+}
+
+func (r *ReportCtrlImpl) UploadContent(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("UploadContent - something went wrong", r)
+		}
+	}()
+
+	files, _, err := utils.ParseMultipartForm(ec,
+		[]utils.FileType{
+			{MimeType: "image/jpeg", Size: 2},
+			{MimeType: "image/jpg", Size: 2},
+			{MimeType: "image/png", Size: 2},
+			{MimeType: "image/webp", Size: 2},
+		})
+	if err != nil {
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	fmt.Println("files", files)
+
+	resp, err := r.ReportSvc.UploadContent(ctx, files)
 	if err != nil {
 		return ec.JSON(resp.Code, resp)
 	}
