@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
@@ -267,8 +266,6 @@ func (r *ReportCtrlImpl) UploadContent(ec echo.Context) error {
 			Error:   err.Error(),
 		})
 	}
-
-	fmt.Println("files", files)
 
 	resp, err := r.ReportSvc.UploadContent(ctx, files)
 	if err != nil {

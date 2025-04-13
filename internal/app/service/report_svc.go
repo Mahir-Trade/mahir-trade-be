@@ -235,7 +235,7 @@ func (r *ReportSvcImpl) UploadContent(ctx context.Context, files map[string][]*m
 		resp.Code = http.StatusUnauthorized
 		resp.Message = "unauthorized"
 		resp.Error = "user not found"
-		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] user not found")
+		slog.ErrorContext(ctx, "[service][UploadContent] user not found")
 
 		return resp, err
 	}

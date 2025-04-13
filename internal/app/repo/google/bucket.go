@@ -169,14 +169,14 @@ func (b *BucketRepoImpl) UploadStreamFile(ctx context.Context, form FileUpload, 
 		return
 	}
 	if form.BucketName == b.GoogleCfg.FileBucketName {
-		url, err = b.PresignedURL(ctx, form.BucketName, fmt.Sprintf("https://storage.cloud.google.com/%s/%s", form.BucketName, form.Filename))
+		url, err = b.PresignedURL(ctx, form.BucketName, fmt.Sprintf("%s/%s/%s", b.GoogleCfg.GooglePublicURL, form.BucketName, form.Filename))
 		if err != nil {
 			slog.ErrorContext(ctx, "[repo][google][UploadFile][PresignedURL]", err)
 			err = fmt.Errorf("something went wrong, we will fix it soon")
 			return
 		}
 	} else {
-		url = fmt.Sprintf("https://storage.googleapis.com/%s/%s", form.BucketName, form.Filename)
+		url = fmt.Sprintf("%s/%s/%s", b.GoogleCfg.GooglePublicURL, form.BucketName, form.Filename)
 	}
 	return
 }
