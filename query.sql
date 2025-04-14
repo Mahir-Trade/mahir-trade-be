@@ -257,4 +257,4 @@ CREATE INDEX "idx_admin_uuid" ON "admins" ("uuid");
 
 -- ALTER TABLE 
 ALTER TABLE "reports" RENAME COLUMN report_file_url TO content;
-ALTER TABLE "reports" ALTER COLUMN content TYPE JSONB USING content::jsonb;
+ALTER TABLE "reports" ALTER COLUMN contents TYPE JSONB USING contents::jsonb;
