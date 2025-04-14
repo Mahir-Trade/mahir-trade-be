@@ -8,19 +8,31 @@ import (
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/google"
 	"mahir-trade-be/internal/app/repo/postgres"
+	"mahir-trade-be/pkg/middleware"
 	"math"
+	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"go.uber.org/dig"
 )
 
 type (
+	Report struct {
+		ID int `json:"id"`
+	}
+	UploadContent struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+
 	ReportSvc interface {
 		CreateReport(ctx context.Context, req models.Report) (resp models.DefaultResponse, err error)
 		GetReports(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		GetReportByID(ctx context.Context, id int64) (resp models.DefaultResponse, err error)
 		UpdateReport(ctx context.Context, req models.Report) (resp models.DefaultResponse, err error)
 		DeleteReport(ctx context.Context, id int64, deletedBy string) (resp models.DefaultResponse, err error)
+		UploadContent(ctx context.Context, files map[string][]*multipart.FileHeader) (resp models.DefaultResponse, err error)
 	}
 
 	ReportSvcImpl struct {
@@ -52,10 +64,6 @@ func (r *ReportSvcImpl) CreateReport(ctx context.Context, req models.Report) (re
 		return resp, err
 	}
 
-	type Report struct {
-		ID int `json:"id"`
-	}
-
 	resp.Data = Report{ID: int(reportId)}
 
 	return
@@ -77,31 +85,25 @@ func (r *ReportSvcImpl) GetReports(ctx context.Context, req models.PaginationReq
 
 		return resp, err
 	}
-
-	var reportsResp []models.Report
-	for _, report := range reports {
-		parsedThumbnailURL := r.BucketRepo.URLParser(report.ReportThumbnailURL)
-		if report.ReportThumbnailURL != "" {
-			report.ReportThumbnailURL, err = r.BucketRepo.PresignedURL(ctx, parsedThumbnailURL.BucketName, report.ReportThumbnailURL)
-			if err != nil {
-				slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReports] while PresignedURL err : %v", err.Error()))
+	if len(reports) > 0 {
+		var reportsResp []models.Report
+		for _, report := range reports {
+			parsedThumbnailURL := r.BucketRepo.URLParser(report.ReportThumbnailURL)
+			if report.ReportThumbnailURL != "" {
+				report.ReportThumbnailURL, err = r.BucketRepo.PresignedURL(ctx, parsedThumbnailURL.BucketName, report.ReportThumbnailURL)
+				if err != nil {
+					slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReports] while PresignedURL err : %v", err.Error()))
+				}
 			}
+			reportsResp = append(reportsResp, report)
 		}
-
-		parsedFileURL := r.BucketRepo.URLParser(report.ReportFileURL)
-		if report.ReportFileURL != "" {
-			report.ReportFileURL, err = r.BucketRepo.PresignedURL(ctx, parsedFileURL.BucketName, report.ReportFileURL)
-			if err != nil {
-				slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReports] while PresignedURL err : %v", err.Error()))
-			}
-		}
-
-		reportsResp = append(reportsResp, report)
+		dataResp.Data = reportsResp
+	} else {
+		dataResp.Data = []models.Report{}
 	}
 
-	// convert to response
 	{
-		dataResp.Data = reportsResp
+		dataResp.Code = http.StatusOK
 		resp.Page = uint(req.Page)
 		resp.Limit = uint(req.Limit)
 
@@ -132,18 +134,13 @@ func (r *ReportSvcImpl) GetReportByID(ctx context.Context, id int64) (resp model
 
 		return resp, err
 	}
-
-	if report.ReportThumbnailURL != "" {
+	if report.ReportThumbnailURL == "" {
 		parsedThumbnailURL := r.BucketRepo.URLParser(report.ReportThumbnailURL)
-		report.ReportThumbnailURL, err = r.BucketRepo.PresignedURL(ctx, parsedThumbnailURL.BucketName, report.ReportThumbnailURL)
-		if err != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReportByID] while PresignedURL err : %v", err.Error()))
+		if report.ReportThumbnailURL == "" {
+			slog.InfoContext(ctx, fmt.Sprintf("[service][GetReportByID] while URLParser err : %v", parsedThumbnailURL))
+			return resp, err
 		}
-	}
-
-	if report.ReportFileURL != "" {
-		parsedFileURL := r.BucketRepo.URLParser(report.ReportFileURL)
-		report.ReportFileURL, err = r.BucketRepo.PresignedURL(ctx, parsedFileURL.BucketName, report.ReportFileURL)
+		report.ReportThumbnailURL, err = r.BucketRepo.PresignedURL(ctx, parsedThumbnailURL.BucketName, report.ReportThumbnailURL)
 		if err != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][GetReportByID] while PresignedURL err : %v", err.Error()))
 		}
@@ -226,6 +223,66 @@ func (r *ReportSvcImpl) DeleteReport(ctx context.Context, id int64, deletedBy st
 
 		return resp, err
 	}
+
+	return
+}
+
+func (r *ReportSvcImpl) UploadContent(ctx context.Context, files map[string][]*multipart.FileHeader) (resp models.DefaultResponse, err error) {
+	var uploadContents []UploadContent
+
+	_, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		resp.Code = http.StatusUnauthorized
+		resp.Message = "unauthorized"
+		resp.Error = "user not found"
+		slog.ErrorContext(ctx, "[service][UploadContent] user not found")
+
+		return resp, err
+	}
+
+	for key, fileHeaders := range files {
+		for _, fileHeader := range fileHeaders {
+			fileName := fmt.Sprintf("contents/%s", strings.ToLower(key))
+			blobFile, egErr := fileHeader.Open()
+			if egErr != nil {
+				slog.ErrorContext(ctx, "failed to open file", "egErr", fileHeader.Filename)
+				err = fmt.Errorf("something went wrong")
+				return
+			}
+			fileUpload := google.FileUpload{
+				Filename:        fileName,
+				Size:            fileHeader.Size,
+				BucketName:      r.GoogleCfg.EducationBucketName,
+				FileContentType: fileHeader.Header.Get("Content-Type"),
+			}
+			if strings.Contains(key, "thumbnail") {
+				fileUpload.BucketName = r.GoogleCfg.FileBucketName
+				fileUpload.Filename = fmt.Sprintf("thumbnails/%s", strings.ToLower(key))
+			}
+			uploadFileUrl, errUpload := r.BucketRepo.UploadStreamFile(ctx, fileUpload, blobFile)
+			if errUpload != nil {
+				slog.ErrorContext(ctx, "failed to upload file", "errUpload", fileHeader.Filename)
+				err = fmt.Errorf("something went wrong")
+				return
+			}
+
+			uploadContents = append(uploadContents, UploadContent{
+				Key:   key,
+				Value: uploadFileUrl,
+			})
+
+			errCloseFile := blobFile.Close()
+			if errCloseFile != nil {
+				slog.ErrorContext(ctx, "failed to close file", "errCloseFile", fileHeader.Filename)
+				err = fmt.Errorf("something went wrong")
+				return
+			}
+		}
+	}
+
+	resp.Code = http.StatusOK
+	resp.Message = "Success"
+	resp.Data = uploadContents
 
 	return
 }

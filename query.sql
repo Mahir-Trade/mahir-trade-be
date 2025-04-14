@@ -252,3 +252,9 @@ CREATE INDEX "idx_order_uuid" ON "orders" ("uuid");
 CREATE INDEX "idx_transaction_uuid" ON "transactions" ("uuid");
 CREATE INDEX "idx_general_logs_uuid" ON "general_logs" ("uuid");
 CREATE INDEX "idx_admin_uuid" ON "admins" ("uuid");
+
+
+
+-- ALTER TABLE 
+ALTER TABLE "reports" RENAME COLUMN report_file_url TO content;
+ALTER TABLE "reports" ALTER COLUMN content TYPE JSONB USING content::jsonb;

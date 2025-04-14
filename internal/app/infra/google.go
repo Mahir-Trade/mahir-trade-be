@@ -25,6 +25,8 @@ type (
 		VideoBucketName        string `envconfig:"GOOGLE_VIDEO_BUCKET_NAME" required:"true"`
 		ImageBucketName        string `envconfig:"GOOGLE_IMAGE_BUCKET_NAME" required:"true"`
 		FileBucketName         string `envconfig:"GOOGLE_FILE_BUCKET_NAME" required:"true"`
+		EducationBucketName    string `envconfig:"GOOGLE_EDUCATION_BUCKET_NAME" required:"true"`
+		GooglePublicURL        string `envconfig:"GOOGLE_BUCKET_PUBLIC_URL" required:"true"`
 	}
 )
 
