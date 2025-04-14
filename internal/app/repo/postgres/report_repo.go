@@ -32,7 +32,7 @@ func NewReportRepo(impl ReportRepoImpl) ReportRepo {
 }
 
 func (r *ReportRepoImpl) CreateReport(ctx context.Context, req models.Report) (id int64, err error) {
-	rows, err := r.QueryContext(ctx, queries.QueryCreateReport, req.ReportName, req.ReportThumbnailURL, req.ReportFileURL, req.CreatedBy)
+	rows, err := r.QueryContext(ctx, queries.QueryCreateReport, req.ReportName, req.ReportThumbnailURL, req.Contents, req.CreatedBy)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while CreateReport err: %v", err.Error()))
 		return id, err
@@ -82,7 +82,7 @@ func (r *ReportRepoImpl) GetReports(ctx context.Context, req models.PaginationRe
 
 	for rows.Next() {
 		var report models.Report
-		err = rows.Scan(&totalCount, &report.ID, &report.ReportName, &report.ReportThumbnailURL, &report.ReportFileURL, &report.CreatedBy, &report.UpdatedBy, &report.CreatedAt, &report.UpdatedAt)
+		err = rows.Scan(&totalCount, &report.ID, &report.ReportName, &report.ReportThumbnailURL, &report.Contents, &report.CreatedBy, &report.UpdatedBy, &report.CreatedAt, &report.UpdatedAt)
 		if err != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("error while GetReports err: %v", err.Error()))
 			return reports, totalCount, err
@@ -90,17 +90,20 @@ func (r *ReportRepoImpl) GetReports(ctx context.Context, req models.PaginationRe
 
 		reports = append(reports, report)
 	}
-
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("error while marshalling reports err: %v", err.Error()))
+		return reports, totalCount, err
+	}
 	return reports, totalCount, nil
 }
 
 func (r *ReportRepoImpl) GetReportByID(ctx context.Context, id int64) (report models.Report, err error) {
 	row := r.QueryRowContext(ctx, queries.QueryGetReportByID, id)
 
-	err = row.Scan(&report.ID, &report.ReportName, &report.ReportThumbnailURL, &report.ReportFileURL, &report.CreatedBy, &report.UpdatedBy, &report.CreatedAt, &report.UpdatedAt)
+	err = row.Scan(&report.ID, &report.ReportName, &report.ReportThumbnailURL, &report.Contents, &report.CreatedBy, &report.UpdatedBy, &report.CreatedAt, &report.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return report, fmt.Errorf("package with id %d not found", id)
+			return report, fmt.Errorf("report not found")
 		}
 
 		slog.ErrorContext(ctx, fmt.Sprintf("error while GetReportByID err: %v", err.Error()))
@@ -111,7 +114,7 @@ func (r *ReportRepoImpl) GetReportByID(ctx context.Context, id int64) (report mo
 }
 
 func (r *ReportRepoImpl) UpdateReport(ctx context.Context, req models.Report) (err error) {
-	_, err = r.ExecContext(ctx, queries.QueryUpdateReport, req.ReportName, req.ReportThumbnailURL, req.ReportFileURL, req.UpdatedBy, req.ID)
+	_, err = r.ExecContext(ctx, queries.QueryUpdateReport, req.ReportName, req.ReportThumbnailURL, req.Contents, req.UpdatedBy, req.ID)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("error while UpdateReport err: %v", err.Error()))
 		return err
