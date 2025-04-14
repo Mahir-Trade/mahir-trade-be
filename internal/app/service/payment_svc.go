@@ -298,43 +298,24 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 				return err
 			}
 
+			userMembershipReq := models.UserMembership{
+				UserID:             order.UserID,
+				PackageID:          order.PackageID,
+				IsMembershipActive: false,
+				Status:             models.MembershipStatusPreOrder,
+				CreatedBy:          "SYSTEM",
+			}
+
 			if userMembership.ID > 0 {
-				var expiredAt string
-
-				if !userMembership.IsMembershipActive {
-					expiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
-				} else {
-					currExpiredAt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
-					if err != nil {
-						slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while Parse expiredAt err : ", err)
-						return err
-					}
-
-					expiredAt = currExpiredAt.AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
-				}
-
-				userMembershipReq := models.UserMembership{
-					UserID:             order.UserID,
-					PackageID:          order.PackageID,
-					ExpiredAt:          expiredAt,
-					IsMembershipActive: true,
-					CreatedBy:          "SYSTEM",
-				}
-
+				userMembershipReq.ExpiredAt = userMembership.ExpiredAt
 				err = p.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while UpdateUserMembershipByUserID err : ", err)
 					return err
 				}
 			} else {
-				userMembershipReq := models.UserMembership{
-					UserID:             order.UserID,
-					PackageID:          order.PackageID,
-					ExpiredAt:          time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime),
-					IsMembershipActive: true,
-					CreatedBy:          "SYSTEM",
-				}
-
+				userMembershipReq.ExpiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
+				fmt.Println("userMembershipReq.ExpiredAt", userMembershipReq.ExpiredAt)
 				_, err = p.UserMembershipRepo.CreateUserMembership(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while CreateUserMembership err : ", err)

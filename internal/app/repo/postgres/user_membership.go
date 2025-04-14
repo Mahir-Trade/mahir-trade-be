@@ -35,7 +35,7 @@ func NewUserMembershipRepo(impl UserMembershipRepoImpl) UserMembershipRepo {
 }
 
 func (u *UserMembershipRepoImpl) CreateUserMembership(ctx context.Context, req models.UserMembership) (id int, err error) {
-	rows, err := u.QueryContext(ctx, queries.QueryCreateUserMembership, req.UserID, req.PackageID, req.ExpiredAt, req.IsMembershipActive, req.CreatedBy)
+	rows, err := u.QueryContext(ctx, queries.QueryCreateUserMembership, req.UserID, req.PackageID, req.ExpiredAt, req.IsMembershipActive, req.Status, req.CreatedBy)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][CreateUserMembership] error while QueryContext", "%v", err.Error())
 		return id, err
@@ -55,7 +55,7 @@ func (u *UserMembershipRepoImpl) CreateUserMembership(ctx context.Context, req m
 }
 
 func (u UserMembershipRepoImpl) UpdateUserMembershipByUserID(ctx context.Context, req models.UserMembership) (err error) {
-	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.UpdatedBy, req.UserID)
+	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.Status, req.UpdatedBy, req.UserID)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][UpdateUserMembershipByUserID] error while ExecContext", "%v", err.Error())
 		return err
@@ -66,7 +66,7 @@ func (u UserMembershipRepoImpl) UpdateUserMembershipByUserID(ctx context.Context
 
 func (u *UserMembershipRepoImpl) GetUserMembershipByUserID(ctx context.Context, userID int64) (resp models.UserMembership, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserMembershipByUserID, userID)
-	err = row.Scan(&resp.ID, &resp.UserID, &resp.PackageID, &resp.ExpiredAt, &resp.IsMembershipActive, &resp.CreatedBy, &resp.UpdatedBy, &resp.CreatedAt, &resp.UpdatedAt)
+	err = row.Scan(&resp.ID, &resp.UserID, &resp.PackageID, &resp.ExpiredAt, &resp.IsMembershipActive, &resp.Status, &resp.CreatedBy, &resp.UpdatedBy, &resp.CreatedAt, &resp.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return resp, nil
