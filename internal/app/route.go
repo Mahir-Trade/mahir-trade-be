@@ -60,7 +60,7 @@ func setRoute(
 		discord.GET("/account/remove-role", authCtrl.ConnectDiscordAccountAndRemoveRole)
 
 		// internal
-		discord.POST("/connect-role", authCtrl.AssignRoleDiscordToUser, middleware.AuthAdminOrUser("user"))
+		discord.POST("/connect-role", authCtrl.AssignRoleDiscordToUser, middleware.AuthAdminOrUser("user"), middleware.CheckMembershipActive())
 		discord.POST("/remove-role", authCtrl.RemoveRoleDiscordUser, middleware.AuthAdminOrUser("user"))
 	}
 
@@ -73,7 +73,7 @@ func setRoute(
 		packageRoute.DELETE("/:id", packageCtrl.DeletePackage, middleware.AuthAdminOrUser("admin"))
 	}
 
-	modules := base.Group("/modules", middleware.AuthAdminOrUser("admin", "user"))
+	modules := base.Group("/modules", middleware.AuthAdminOrUser("admin", "user"), middleware.CheckMembershipActive())
 	{
 		modules.GET("", moduleCtrl.GetModules)
 		modules.GET("/:module_id", moduleCtrl.GetModuleByID)
@@ -84,7 +84,7 @@ func setRoute(
 		modules.GET("/user/:module_id", moduleCtrl.GetPercetangeMarkWatchedModulesUser, middleware.AuthAdminOrUser("user"))
 	}
 
-	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"))
+	subModules := base.Group("/sub-modules", middleware.AuthAdminOrUser("admin", "user"), middleware.CheckMembershipActive())
 	{
 		subModules.GET("/:sub_module_id", subModuleCtrl.GetSubModuleByID)
 		subModules.GET("", subModuleCtrl.GetSubModules)

@@ -23,17 +23,20 @@ type (
 		UserID   int64  `json:"user_id"`
 		Email    string `json:"email"`
 		Username string `json:"username"`
+		Role     string `json:"role"`
 	}
 
 	MiddleWareImpl struct {
 		dig.In
 
-		UserRepo  postgres.UserRepo
-		AdminRepo postgres.AdminRepo
+		UserRepo           postgres.UserRepo
+		AdminRepo          postgres.AdminRepo
+		UserMembershipRepo postgres.UserMembershipRepo
 	}
 
 	MiddleWare interface {
 		AuthAdminOrUser(role ...string) func(next echo.HandlerFunc) echo.HandlerFunc
+		CheckMembershipActive() echo.MiddlewareFunc
 	}
 
 	userDataKey string
@@ -138,6 +141,7 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 					userCtx.UserID = adminData.AdminID
 					userCtx.Email = adminData.Email
 					userCtx.Username = adminData.Username
+					userCtx.Role = "admin"
 				}
 			} else if len(role) == 1 && role[0] == "user" {
 				userData, errGetUser := m.UserRepo.FindUserByEmailOrUsername(ctx, userCtx.Email)
@@ -151,12 +155,58 @@ func (m *MiddleWareImpl) AuthAdminOrUser(role ...string) func(next echo.HandlerF
 					userCtx.UserID = int64(userData.UserID)
 					userCtx.Email = userData.Email
 					userCtx.Username = userData.Username
+					userCtx.Role = "user"
 				}
 			}
 
 			ctx = context.WithValue(ctx, UserData, userCtx)
 
 			c.SetRequest(c.Request().WithContext(ctx))
+
+			return next(c)
+		}
+	}
+}
+
+func (m *MiddleWareImpl) CheckMembershipActive() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			errResponse := models.DefaultResponse{
+				Code:    http.StatusForbidden,
+				Message: "Access denied. Membership required.",
+				Data:    struct{}{},
+			}
+
+			ctx := c.Request().Context()
+			userCtxVal := ctx.Value(UserData)
+			if userCtxVal == nil {
+				slog.ErrorContext(ctx, "[Middleware][CheckMembershipActive] missing user context")
+				errResponse.Message = "Unauthorized"
+				return c.JSON(http.StatusUnauthorized, errResponse)
+			}
+
+			userCtx, ok := userCtxVal.(UserCtxReq)
+			if !ok {
+				slog.ErrorContext(ctx, "[Middleware][CheckMembershipActive] invalid user context type")
+				errResponse.Message = "Unauthorized"
+				return c.JSON(http.StatusUnauthorized, errResponse)
+			}
+
+			if userCtx.Role == "admin" {
+				return next(c)
+			}
+
+			membership, err := m.UserMembershipRepo.GetUserMembershipByUserID(ctx, userCtx.UserID)
+			if err != nil {
+				slog.ErrorContext(ctx, "[Middleware][CheckMembershipActive] error get membership data", err)
+				errResponse.Message = "Internal server error"
+				return c.JSON(http.StatusInternalServerError, errResponse)
+			}
+
+			if !membership.IsMembershipActive {
+				slog.WarnContext(ctx, "[Middleware][CheckMembershipActive] user is not active member", "user_id", userCtx.UserID)
+				return c.JSON(http.StatusForbidden, errResponse)
+			}
 
 			return next(c)
 		}
