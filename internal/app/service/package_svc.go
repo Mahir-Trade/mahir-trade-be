@@ -7,6 +7,7 @@ import (
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/repo/postgres"
 	"mahir-trade-be/internal/app/service/utils"
+	"mahir-trade-be/pkg/middleware"
 	"math"
 	"net/http"
 	"time"
@@ -21,14 +22,15 @@ type (
 		GetPackageByID(ctx context.Context, packageId int64) (resp models.DefaultResponse, err error)
 		UpdatePackage(ctx context.Context, req models.Package) (resp models.DefaultResponse, err error)
 		DeletePackage(ctx context.Context, packageId int64, deletedBy string) (resp models.DefaultResponse, err error)
-		CheckPackageAvailability(ctx context.Context) (bool, error)
+		CheckPackageAvailability(ctx context.Context, membershipPackage models.Package, userMembership models.UserMembership) (bool, error)
 	}
 
 	PackageSvcImpl struct {
 		dig.In
 
-		PackageRepo postgres.PackageRepo
-		ConfigRepo  postgres.ConfigRepo
+		PackageRepo        postgres.PackageRepo
+		ConfigRepo         postgres.ConfigRepo
+		UserMembershipRepo postgres.UserMembershipRepo
 	}
 )
 
@@ -47,7 +49,7 @@ func (p *PackageSvcImpl) CreatePackage(ctx context.Context, req models.Package) 
 		err := p.PackageRepo.UpdatePackageDiscountExpired(ctx, discountExpired)
 		if err != nil {
 			resp.Code = http.StatusBadRequest
-			resp.Message = "bad request"
+			resp.Message = http.StatusText(http.StatusBadRequest)
 			resp.Error = err.Error()
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][CreatePackage] while UpdatePackageDiscountExpired err : %v", err.Error()))
 
@@ -59,7 +61,7 @@ func (p *PackageSvcImpl) CreatePackage(ctx context.Context, req models.Package) 
 	packageId, err := p.PackageRepo.CreatePackage(ctx, req)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][CreatePackage] while CreatePackage err : %v", err.Error()))
 
@@ -85,7 +87,7 @@ func (p *PackageSvcImpl) GetPackages(ctx context.Context, req models.PaginationR
 	packages, totalCount, err := p.PackageRepo.GetPackages(ctx, req)
 	if err != nil {
 		dataResp.Code = http.StatusBadRequest
-		dataResp.Message = "bad request"
+		dataResp.Message = http.StatusText(http.StatusBadRequest)
 		dataResp.Error = err.Error()
 		resp.Results = dataResp
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackages] while GetPackages err : %v", err.Error()))
@@ -93,15 +95,18 @@ func (p *PackageSvcImpl) GetPackages(ctx context.Context, req models.PaginationR
 		return resp, err
 	}
 
-	isAvailable, _ := p.CheckPackageAvailability(ctx)
-	// if err != nil {
-	// 	slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackages] while CheckPackageAvailability err : %v", err.Error()))
-	// 	isAvailable = false
-	// }
+	userMembership, err := p.UserMembershipRepo.GetUserMembershipByUserID(ctx, ctx.Value(middleware.UserData).(middleware.UserCtxReq).UserID)
+	if err != nil {
+		dataResp.Code = http.StatusBadRequest
+		dataResp.Message = http.StatusText(http.StatusBadRequest)
+		dataResp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while GetUserMembershipByUserID err : %v", err))
 
-	// Set nilai IsAvailable ke setiap package
+		return resp, err
+	}
+
 	for i := range packages {
-		packages[i].IsAvailable = isAvailable
+		packages[i].IsAvailable, _ = p.CheckPackageAvailability(ctx, packages[i], userMembership)
 	}
 
 	// mapping response
@@ -131,21 +136,25 @@ func (p *PackageSvcImpl) GetPackageByID(ctx context.Context, packageId int64) (r
 	packageData, err := p.PackageRepo.GetPackageByID(ctx, packageId)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while GetPackageByID err : %v", err))
 
 		return resp, err
 	}
 
-	isAvailable, _ := p.CheckPackageAvailability(ctx)
-	// if err != nil {
-	// 	slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while CheckPackageAvailability err : %v", err.Error()))
-	// 	isAvailable = false
-	// }
+	userMembership, err := p.UserMembershipRepo.GetUserMembershipByUserID(ctx, ctx.Value(middleware.UserData).(middleware.UserCtxReq).UserID)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = http.StatusText(http.StatusBadRequest)
+		resp.Error = err.Error()
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while GetUserMembershipByUserID err : %v", err))
 
+		return resp, err
+	}
+
+	isAvailable, _ := p.CheckPackageAvailability(ctx, packageData, userMembership)
 	packageData.IsAvailable = isAvailable
-
 	resp.Data = packageData
 
 	return
@@ -160,7 +169,7 @@ func (p *PackageSvcImpl) UpdatePackage(ctx context.Context, req models.Package) 
 	packageData, err := p.PackageRepo.GetPackageByID(ctx, req.ID)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdatePackage] while GetPackageByID err : %v", err))
 
@@ -169,7 +178,7 @@ func (p *PackageSvcImpl) UpdatePackage(ctx context.Context, req models.Package) 
 
 	if packageData.ID == 0 {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = fmt.Sprintf("package with id %d not found", req.ID)
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdatePackage] package with id %d not found", req.ID))
 
@@ -181,7 +190,7 @@ func (p *PackageSvcImpl) UpdatePackage(ctx context.Context, req models.Package) 
 		err = p.PackageRepo.UpdatePackageDiscountExpired(ctx, newDiscountExpired)
 		if err != nil {
 			resp.Code = http.StatusBadRequest
-			resp.Message = "bad request"
+			resp.Message = http.StatusText(http.StatusBadRequest)
 			resp.Error = err.Error()
 			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdatePackage] while UpdatePackageDiscountExpired err : %v", err))
 
@@ -192,7 +201,7 @@ func (p *PackageSvcImpl) UpdatePackage(ctx context.Context, req models.Package) 
 	err = p.PackageRepo.UpdatePackage(ctx, req)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdatePackage] while UpdatePackage err : %v", err))
 
@@ -211,7 +220,7 @@ func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64, del
 	packageData, err := p.PackageRepo.GetPackageByID(ctx, packageId)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][DeletePackage] while GetPackageByID err : %v", err))
 
@@ -220,7 +229,7 @@ func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64, del
 
 	if packageData.ID == 0 {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = fmt.Sprintf("package with id %d not found", packageId)
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][DeletePackage] package with id %d not found", packageId))
 
@@ -230,7 +239,7 @@ func (p *PackageSvcImpl) DeletePackage(ctx context.Context, packageId int64, del
 	err = p.PackageRepo.SoftDeletePackage(ctx, packageId, deletedBy)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, fmt.Sprintf("[service][DeletePackage] while DeletePackage err : %v", err))
 
@@ -245,44 +254,66 @@ func getDiscountExpired(t time.Time) time.Time {
 	return firstDayNextMonth.Add(-time.Second)
 }
 
-func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context) (bool, error) {
-	startDate, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
+func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context, membershipPackage models.Package, userMembership models.UserMembership) (bool, error) {
+	startDateStr, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while GetConfigByKey %s err : %v", utils.MembershipProgramStartDateConfig, err))
+		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Failed to get %s: %v", utils.MembershipProgramStartDateConfig, err))
 		return false, fmt.Errorf("failed to get %s: %w", utils.MembershipProgramStartDateConfig, err)
 	}
 
-	endDate, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
+	endDateStr, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
 	if err != nil {
-		slog.InfoContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while GetConfigByKey %s err : %v", utils.MembershipProgramEndDateConfig, err))
+		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Failed to get %s: %v", utils.MembershipProgramEndDateConfig, err))
 		return false, fmt.Errorf("failed to get %s: %w", utils.MembershipProgramEndDateConfig, err)
 	}
 
-	if startDate == "" || endDate == "" {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] %s or %s is empty", utils.MembershipProgramStartDateConfig, utils.MembershipProgramEndDateConfig))
+	if startDateStr == "" || endDateStr == "" {
+		slog.ErrorContext(ctx, "[CheckPackageAvailability] Start or End date config is empty")
 		return true, nil
 	}
 
-	layout := "2006-01-02"
-
-	startTime, err := time.Parse(layout, startDate)
+	startDate, err := parseDate(startDateStr, time.DateOnly)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while Parse %s err : %v", utils.MembershipProgramStartDateConfig, err))
-		return false, fmt.Errorf("failed to parse %s: %w", utils.MembershipProgramStartDateConfig, err)
+		return false, fmt.Errorf("failed to parse start date: %w", err)
 	}
 
-	endTime, err := time.Parse(layout, endDate)
+	endDate, err := parseDate(endDateStr, time.DateOnly)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][CheckPackageAvailability] while Parse %s err : %v", utils.MembershipProgramEndDateConfig, err))
-		return false, fmt.Errorf("failed to parse %s: %w", utils.MembershipProgramEndDateConfig, err)
+		return false, fmt.Errorf("failed to parse end date: %w", err)
 	}
 
-	currentTime := time.Now()
-
-	currentDate := currentTime.Truncate(24 * time.Hour)
-	if currentDate.Before(startTime) || currentDate.After(endTime) {
+	today := time.Now().Truncate(24 * time.Hour)
+	if today.Before(startDate) || today.After(endDate) {
 		return true, nil
+	}
+
+	if isPreOrder(userMembership) {
+		return checkPreOrderValidity(ctx, userMembership, membershipPackage, endDate)
 	}
 
 	return false, nil
+}
+
+func isPreOrder(um models.UserMembership) bool {
+	return um.UserID > 0 && um.Status == models.MembershipStatusPreOrder
+}
+
+func parseDate(dateStr, layout string) (time.Time, error) {
+	return time.Parse(layout, dateStr)
+}
+
+func checkPreOrderValidity(ctx context.Context, userMembership models.UserMembership, pkg models.Package, endDate time.Time) (bool, error) {
+	expiredAt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Failed to parse expiredAt %s: %v", userMembership.ExpiredAt, err))
+		return false, fmt.Errorf("failed to parse expiredAt: %w", err)
+	}
+
+	extendedExpiry := expiredAt.AddDate(0, int(pkg.DurationInMonth), 0)
+	if extendedExpiry.After(endDate) {
+		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Extended expiry %s exceeds end date %s", extendedExpiry.Format(time.RFC3339), endDate.Format(time.RFC3339)))
+		return false, nil
+	}
+
+	return true, nil
 }
