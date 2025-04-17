@@ -128,15 +128,18 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 	}
 
 	if req.MembershipStatus != "" {
-		query += fmt.Sprintf(" AND um.status = $%d", len(queryParams)+1)
+		filterQuery := fmt.Sprintf(" AND um.status = $%d", len(queryParams)+1)
 		switch strings.ToUpper(req.MembershipStatus) {
 		case string(models.MembershipStatusActive):
-			queryParams = append(queryParams, models.MembershipStatusActive)
+			filterQuery = fmt.Sprintf(" AND um.is_membership_active = $%d", len(queryParams)+1)
+			queryParams = append(queryParams, true)
 		case string(models.MembershipStatusPreOrder):
 			queryParams = append(queryParams, models.MembershipStatusPreOrder)
 		case string(models.MembershipStatusExpired):
 			queryParams = append(queryParams, models.MembershipStatusExpired)
 		}
+
+		query += filterQuery
 	}
 
 	query += fmt.Sprintf(" ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
