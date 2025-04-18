@@ -37,6 +37,8 @@ const (
 			u.username,
 			u.is_active,
 			case 
+				when um.is_membership_active = true then 'Premium'
+				when um.status = 'PRE_ORDER' then 'Pre-Order'
 				when um.id is not null then 'Premium'
 				else 'Standard'
 			end as account_type,

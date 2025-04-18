@@ -37,6 +37,7 @@ type (
 		TransactionRepo    postgres.TransactionRepo
 		UserMembershipRepo postgres.UserMembershipRepo
 		GeneralLogRepo     postgres.GeneralLogRepo
+		PackageSvcImpl     PackageSvcImpl
 	}
 )
 
@@ -45,7 +46,7 @@ func NewPaymentSvc(impl PaymentSvcImpl) PaymentSvc {
 }
 
 const (
-	formattedTime = "2006-01-02 15:04:05"
+	formattedTime = time.DateTime
 )
 
 func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int64) (resp models.DefaultResponse, err error) {
@@ -57,7 +58,7 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 	packageData, err := p.PackageRepo.GetPackageByID(ctx, packageID)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] while GetPackageByID err : ", err)
 
@@ -66,7 +67,7 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 
 	if packageData.ID == 0 {
 		resp.Code = http.StatusNotFound
-		resp.Message = "not found"
+		resp.Message = http.StatusText(http.StatusNotFound)
 		resp.Error = "package not found"
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] package not found")
 
@@ -76,7 +77,7 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 	currUser, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
 	if !ok {
 		resp.Code = http.StatusUnauthorized
-		resp.Message = "unauthorized"
+		resp.Message = http.StatusText(http.StatusUnauthorized)
 		resp.Error = "user not found"
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] user not found")
 
@@ -86,17 +87,18 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 	userMembership, err := p.UserMembershipRepo.GetUserMembershipByUserID(ctx, currUser.UserID)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] while GetUserMembershipByUserID err : ", err)
 
 		return resp, err
 	}
 
-	if userMembership.IsMembershipActive {
+	isEligible, _ := p.PackageSvcImpl.CheckPackageAvailability(ctx, packageData, userMembership)
+	if !isEligible {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
-		resp.Error = "user already has an active membership"
+		resp.Message = http.StatusText(http.StatusBadRequest)
+		resp.Error = "you are not eligible to purchase this package"
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] user already has an active membership")
 
 		return resp, fmt.Errorf("%s", resp.Error)
@@ -105,7 +107,7 @@ func (p *PaymentSvcImpl) GeneratePaymentLink(ctx context.Context, packageID int6
 	user, err := p.UserRepo.GetUserByID(ctx, currUser.UserID)
 	if err != nil {
 		resp.Code = http.StatusBadRequest
-		resp.Message = "bad request"
+		resp.Message = http.StatusText(http.StatusBadRequest)
 		resp.Error = err.Error()
 		slog.ErrorContext(ctx, "[service][GeneratePaymentLink] while GetUserByID err : ", err)
 
@@ -298,43 +300,24 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 				return err
 			}
 
+			userMembershipReq := models.UserMembership{
+				UserID:             order.UserID,
+				PackageID:          order.PackageID,
+				IsMembershipActive: false,
+				Status:             models.MembershipStatusPreOrder,
+				CreatedBy:          "SYSTEM",
+			}
+
 			if userMembership.ID > 0 {
-				var expiredAt string
-
-				if !userMembership.IsMembershipActive {
-					expiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
-				} else {
-					currExpiredAt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
-					if err != nil {
-						slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while Parse expiredAt err : ", err)
-						return err
-					}
-
-					expiredAt = currExpiredAt.AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
-				}
-
-				userMembershipReq := models.UserMembership{
-					UserID:             order.UserID,
-					PackageID:          order.PackageID,
-					ExpiredAt:          expiredAt,
-					IsMembershipActive: true,
-					CreatedBy:          "SYSTEM",
-				}
-
+				userMembershipReq.ExpiredAt = userMembership.ExpiredAt
 				err = p.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while UpdateUserMembershipByUserID err : ", err)
 					return err
 				}
 			} else {
-				userMembershipReq := models.UserMembership{
-					UserID:             order.UserID,
-					PackageID:          order.PackageID,
-					ExpiredAt:          time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime),
-					IsMembershipActive: true,
-					CreatedBy:          "SYSTEM",
-				}
-
+				userMembershipReq.ExpiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
+				fmt.Println("userMembershipReq.ExpiredAt", userMembershipReq.ExpiredAt)
 				_, err = p.UserMembershipRepo.CreateUserMembership(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while CreateUserMembership err : ", err)

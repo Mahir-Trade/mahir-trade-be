@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log/slog"
 	"mahir-trade-be/internal/app/models"
 	"mahir-trade-be/internal/app/service"
@@ -23,6 +24,7 @@ type (
 		GetDetailAdminInfo(ec echo.Context) error
 		GetAllUsers(ec echo.Context) error
 		ToggleInactiveUserMembership(ec echo.Context) error
+		StartMembershipProgram(ec echo.Context) error
 	}
 
 	AdminCtrlImpl struct {
@@ -255,12 +257,12 @@ func (ox *AdminCtrlImpl) GetAllUsers(ec echo.Context) error {
 	}
 
 	search := ec.QueryParam("search")
-	isMembership := ec.QueryParam("isMembership")
+	MembershipStatus := ec.QueryParam("membershipStatus")
 	req := models.PaginationRequest{
-		Limit:        limit,
-		Page:         page,
-		Search:       search,
-		IsMembership: isMembership == "true",
+		Limit:            limit,
+		Page:             page,
+		Search:           search,
+		MembershipStatus: MembershipStatus,
 	}
 
 	res, err := ox.AdminSvc.GetAllUsers(ctx, req)
@@ -311,4 +313,50 @@ func (ox *AdminCtrlImpl) ToggleInactiveUserMembership(ec echo.Context) error {
 	}
 
 	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AdminCtrlImpl) StartMembershipProgram(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("StartMembershipProgram - something went wrong", r)
+		}
+	}()
+
+	var req models.StartMembershipProgramRequest
+
+	if err := ec.Bind(&req); err != nil {
+		slog.Error("StartMembershipProgram - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		slog.Error("StartMembershipProgram - something went wrong", err)
+		errs := err.(validator.ValidationErrors)
+		var errorMessages []string
+		for _, e := range errs {
+			errorMessages = append(errorMessages, fmt.Sprintf("Field %s is %s", e.Field(), e.Tag()))
+		}
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errorMessages,
+		})
+	}
+
+	resp, err := ox.AdminSvc.StartMembershipProgram(ctx, req)
+	if err != nil {
+		slog.Error("StartMembershipProgram - something went wrong", err)
+		return ec.JSON(resp.Code, resp)
+	}
+
+	return ec.JSON(resp.Code, resp)
 }

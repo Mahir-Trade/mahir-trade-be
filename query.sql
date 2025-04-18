@@ -258,3 +258,28 @@ CREATE INDEX "idx_admin_uuid" ON "admins" ("uuid");
 -- ALTER TABLE 
 ALTER TABLE "reports" RENAME COLUMN report_file_url TO content;
 ALTER TABLE "reports" ALTER COLUMN contents TYPE JSONB USING contents::jsonb;
+
+CREATE TABLE config (
+  id BIGSERIAL PRIMARY KEY,
+  key VARCHAR(255) NOT NULL UNIQUE,
+  value TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT now(),
+  created_by VARCHAR(100) DEFAULT 'SYSTEM',
+  updated_at TIMESTAMP DEFAULT now(),
+  updated_by VARCHAR(100) DEFAULT 'SYSTEM',
+  deleted_at TIMESTAMP,
+  deleted_by VARCHAR(100)
+);
+
+INSERT INTO config (key, value) VALUES ('MEMBERSHIP_PROGRAM_START_DATE', ''), ('MEMBERSHIP_PROGRAM_END_DATE', '');
+
+CREATE TYPE membership_status AS ENUM (
+  'UNKNOWN',
+  'PRE_ORDER',
+  'ACTIVE',
+  'EXPIRED'
+);
+
+ALTER TABLE user_memberships ADD COLUMN status membership_status default 'UNKNOWN';
+
+CREATE INDEX idx_user_memberships_status ON user_memberships(status);

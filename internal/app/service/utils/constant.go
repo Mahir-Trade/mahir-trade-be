@@ -13,4 +13,7 @@ const (
 	ErrorBadRequest         = "bad request"
 	ErrorUnauthorized       = "unauthorized"
 	ErrorInvalidRequestBody = "invalid request body"
+
+	MembershipProgramStartDateConfig = "MEMBERSHIP_PROGRAM_START_DATE"
+	MembershipProgramEndDateConfig   = "MEMBERSHIP_PROGRAM_END_DATE"
 )

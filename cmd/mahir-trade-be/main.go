@@ -211,6 +211,11 @@ func LoadApplicationRepository() error {
 		return fmt.Errorf("NewEmailTemplateRepo: %s", err.Error())
 	}
 
+	err = di.Provide(postgres.NewConfigRepo)
+	if err != nil {
+		return fmt.Errorf("NewConfigRepo: %s", err.Error())
+	}
+
 	return nil
 }
 

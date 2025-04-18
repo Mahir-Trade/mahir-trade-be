@@ -802,6 +802,7 @@ func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
 			UserID:             userMembership.UserID,
 			IsMembershipActive: false,
 			ExpiredAt:          userMembership.ExpiredAt,
+			Status:             models.MembershipStatusExpired,
 			UpdatedBy:          "CRONJOB",
 		})
 		if err != nil {

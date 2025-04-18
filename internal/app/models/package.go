@@ -12,5 +12,7 @@ type (
 		UpdatedBy       string  `json:"updated_by,omitempty"`
 		CreatedAt       string  `json:"created_at,omitempty"`
 		UpdatedAt       string  `json:"updated_at,omitempty"`
+
+		IsAvailable bool `json:"is_available"`
 	}
 )

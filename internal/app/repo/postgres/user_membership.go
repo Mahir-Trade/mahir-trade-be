@@ -20,6 +20,7 @@ type (
 		GetUserMembershipByUserID(ctx context.Context, userID int64) (resp models.UserMembership, err error)
 		GetUserMembershipExpired(ctx context.Context) (resp []models.UserMembership, err error)
 		UpdateUserMembershipExpired(ctx context.Context, userIds []int64, updatedBy string) (err error)
+		BulkUpdateMembershipPreOrderActivation(ctx context.Context) (err error)
 	}
 
 	UserMembershipRepoImpl struct {
@@ -34,7 +35,7 @@ func NewUserMembershipRepo(impl UserMembershipRepoImpl) UserMembershipRepo {
 }
 
 func (u *UserMembershipRepoImpl) CreateUserMembership(ctx context.Context, req models.UserMembership) (id int, err error) {
-	rows, err := u.QueryContext(ctx, queries.QueryCreateUserMembership, req.UserID, req.PackageID, req.ExpiredAt, req.IsMembershipActive, req.CreatedBy)
+	rows, err := u.QueryContext(ctx, queries.QueryCreateUserMembership, req.UserID, req.PackageID, req.ExpiredAt, req.IsMembershipActive, req.Status, req.CreatedBy)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][CreateUserMembership] error while QueryContext", "%v", err.Error())
 		return id, err
@@ -54,7 +55,7 @@ func (u *UserMembershipRepoImpl) CreateUserMembership(ctx context.Context, req m
 }
 
 func (u UserMembershipRepoImpl) UpdateUserMembershipByUserID(ctx context.Context, req models.UserMembership) (err error) {
-	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.UpdatedBy, req.UserID)
+	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.Status, req.UpdatedBy, req.UserID)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][UpdateUserMembershipByUserID] error while ExecContext", "%v", err.Error())
 		return err
@@ -65,7 +66,7 @@ func (u UserMembershipRepoImpl) UpdateUserMembershipByUserID(ctx context.Context
 
 func (u *UserMembershipRepoImpl) GetUserMembershipByUserID(ctx context.Context, userID int64) (resp models.UserMembership, err error) {
 	row := u.QueryRowContext(ctx, queries.QueryGetUserMembershipByUserID, userID)
-	err = row.Scan(&resp.ID, &resp.UserID, &resp.PackageID, &resp.ExpiredAt, &resp.IsMembershipActive, &resp.CreatedBy, &resp.UpdatedBy, &resp.CreatedAt, &resp.UpdatedAt)
+	err = row.Scan(&resp.ID, &resp.UserID, &resp.PackageID, &resp.ExpiredAt, &resp.IsMembershipActive, &resp.Status, &resp.CreatedBy, &resp.UpdatedBy, &resp.CreatedAt, &resp.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return resp, nil
@@ -166,6 +167,29 @@ func (u *UserMembershipRepoImpl) UpdateUserMembershipExpired(ctx context.Context
 	_, err = u.ExecContext(ctx, queryBuilder.String(), args...)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][UpdateUserMembershipExpired] error while ExecContext", "%v", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func (u *UserMembershipRepoImpl) BulkUpdateMembershipPreOrderActivation(ctx context.Context) (err error) {
+	tx, err := u.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][BulkUpdateMembershipPreOrderActivation] error while BeginTx", "%v", err.Error())
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, queries.QueryBulkUpdateMembershipPreOrderActivation)
+	if err != nil {
+		tx.Rollback()
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][BulkUpdateMembershipPreOrderActivation] error while ExecContext", "%v", err.Error())
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		slog.ErrorContext(ctx, "[userMembershipRepoImpl][BulkUpdateMembershipPreOrderActivation] error while Commit", "%v", err.Error())
 		return err
 	}
 
