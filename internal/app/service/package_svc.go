@@ -95,14 +95,17 @@ func (p *PackageSvcImpl) GetPackages(ctx context.Context, req models.PaginationR
 		return resp, err
 	}
 
-	userMembership, err := p.UserMembershipRepo.GetUserMembershipByUserID(ctx, ctx.Value(middleware.UserData).(middleware.UserCtxReq).UserID)
-	if err != nil {
-		dataResp.Code = http.StatusBadRequest
-		dataResp.Message = http.StatusText(http.StatusBadRequest)
-		dataResp.Error = err.Error()
-		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while GetUserMembershipByUserID err : %v", err))
+	userMembership := models.UserMembership{}
+	if ctx.Value(middleware.UserData) != nil {
+		userMembership, err = p.UserMembershipRepo.GetUserMembershipByUserID(ctx, ctx.Value(middleware.UserData).(middleware.UserCtxReq).UserID)
+		if err != nil {
+			dataResp.Code = http.StatusBadRequest
+			dataResp.Message = http.StatusText(http.StatusBadRequest)
+			dataResp.Error = err.Error()
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][GetPackageByID] while GetUserMembershipByUserID err : %v", err))
 
-		return resp, err
+			return resp, err
+		}
 	}
 
 	for i := range packages {
@@ -287,7 +290,7 @@ func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context, membershi
 		return true, nil
 	}
 
-	if isPreOrder(userMembership) {
+	if userMembership.ID > 0 && isPreOrder(userMembership) {
 		return checkPreOrderValidity(ctx, userMembership, membershipPackage, endDate)
 	}
 
