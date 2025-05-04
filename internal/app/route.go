@@ -108,7 +108,7 @@ func setRoute(
 		admins.POST("/start-membership-program", adminCtrl.StartMembershipProgram, middleware.AuthAdminOrUser("admin"))
 	}
 
-	report := base.Group("/reports", middleware.AuthAdminOrUser("admin", "user"))
+	report := base.Group("/reports")
 	{
 		report.GET("/:id", reportCtrl.GetReportByID)
 		report.GET("", reportCtrl.GetReports)
