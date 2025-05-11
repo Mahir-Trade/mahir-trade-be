@@ -39,6 +39,8 @@ type (
 		GetAllUsers(ctx context.Context, req models.PaginationRequest) (resp models.DefaultPaginationResponseData, err error)
 		ToggleInactiveUserMembership(ctx context.Context, req ToggleUserMembershipRequest) (resp models.DefaultResponse, err error)
 		StartMembershipProgram(ctx context.Context, req models.StartMembershipProgramRequest) (resp models.DefaultResponse, err error)
+		GetMembershipProgramDate(ctx context.Context) (resp models.DefaultResponse, err error)
+		UpdateMembershipProgramDate(ctx context.Context, req models.StartMembershipProgramRequest) (resp models.DefaultResponse, err error)
 	}
 
 	AdminSvcImpl struct {
@@ -323,7 +325,7 @@ func (a *AdminSvcImpl) StartMembershipProgram(ctx context.Context, req models.St
 	currStartStr, _ := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
 	currEndStr, _ := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
 
-	layout := "2006-01-02"
+	layout := time.DateOnly
 	today := time.Now().Truncate(24 * time.Hour)
 
 	if currStartStr != "" && currEndStr != "" {
@@ -373,6 +375,90 @@ func (a *AdminSvcImpl) StartMembershipProgram(ctx context.Context, req models.St
 		slog.ErrorContext(ctx, "[service][StartMembershipProgram] error while UpdateConfigByKey err: %v", err)
 		resp.Code = http.StatusInternalServerError
 		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	err = a.ConfigRepo.UpdateConfigByKey(utils.MembershipProgramEndDateConfig, req.EndDate, adminData.Username)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][StartMembershipProgram] error while UpdateConfigByKey err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	return
+}
+
+func (a *AdminSvcImpl) GetMembershipProgramDate(ctx context.Context) (resp models.DefaultResponse, err error) {
+	{
+		resp = models.DefaultResponse{
+			Code:    http.StatusOK,
+			Message: "Success",
+			Data:    struct{}{},
+		}
+	}
+
+	startDate, err := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetMembershipProgramDate] error while GetConfigByKey err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	endDate, err := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][GetMembershipProgramDate] error while GetConfigByKey err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	resp.Data = struct {
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
+	}{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	return
+}
+
+func (a *AdminSvcImpl) UpdateMembershipProgramDate(ctx context.Context, req models.StartMembershipProgramRequest) (resp models.DefaultResponse, err error) {
+	{
+		resp = models.DefaultResponse{
+			Code:    http.StatusOK,
+			Message: "Success",
+		}
+	}
+
+	if req.EndDate == "" {
+		err = errors.New("end_date is required")
+		resp.Code = http.StatusBadRequest
+		resp.Message = "end_date is required"
+		resp.Error = err.Error()
+		return
+	}
+
+	adminData, ok := ctx.Value(middleware.UserData).(middleware.UserCtxReq)
+	if !ok {
+		err = errors.New("failed to get admin data from context")
+		slog.ErrorContext(ctx, "[service][UpdateMembershipProgramDate] error while getting admin data from context: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	_, err = time.Parse(time.DateOnly, req.EndDate)
+	if err != nil {
+		resp.Code = http.StatusBadRequest
+		resp.Message = "Invalid end_date format (use YYYY-MM-DD)"
 		resp.Error = err.Error()
 		return
 	}

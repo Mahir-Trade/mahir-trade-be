@@ -25,6 +25,8 @@ type (
 		GetAllUsers(ec echo.Context) error
 		ToggleInactiveUserMembership(ec echo.Context) error
 		StartMembershipProgram(ec echo.Context) error
+		GetMembershipProgramDate(ec echo.Context) error
+		UpdateMembershipProgramDate(ec echo.Context) error
 	}
 
 	AdminCtrlImpl struct {
@@ -355,6 +357,70 @@ func (ox *AdminCtrlImpl) StartMembershipProgram(ec echo.Context) error {
 	resp, err := ox.AdminSvc.StartMembershipProgram(ctx, req)
 	if err != nil {
 		slog.Error("StartMembershipProgram - something went wrong", err)
+		return ec.JSON(resp.Code, resp)
+	}
+
+	return ec.JSON(resp.Code, resp)
+}
+
+func (ox *AdminCtrlImpl) GetMembershipProgramDate(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("GetMembershipProgramDate - something went wrong", r)
+		}
+	}()
+
+	res, err := ox.AdminSvc.GetMembershipProgramDate(ctx)
+	if err != nil {
+		slog.Error("GetMembershipProgramDate - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, res)
+	}
+
+	return ec.JSON(http.StatusOK, res)
+}
+
+func (ox *AdminCtrlImpl) UpdateMembershipProgramDate(ec echo.Context) error {
+	ctx := ec.Request().Context()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("UpdateMembershipProgramDate - something went wrong", r)
+		}
+	}()
+
+	var req models.StartMembershipProgramRequest
+
+	if err := ec.Bind(&req); err != nil {
+		slog.Error("UpdateMembershipProgramDate - something went wrong", err)
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	validate := utils.Validate
+
+	err := validate.Struct(req)
+	if err != nil {
+		slog.Error("UpdateMembershipProgramDate - something went wrong", err)
+		errs := err.(validator.ValidationErrors)
+		var errorMessages []string
+		for _, e := range errs {
+			errorMessages = append(errorMessages, fmt.Sprintf("Field %s is %s", e.Field(), e.Tag()))
+		}
+		return ec.JSON(http.StatusBadRequest, models.DefaultResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Invalid request body",
+			Error:   errorMessages,
+		})
+	}
+
+	resp, err := ox.AdminSvc.UpdateMembershipProgramDate(ctx, req)
+	if err != nil {
+		slog.Error("UpdateMembershipProgramDate - something went wrong", err)
 		return ec.JSON(resp.Code, resp)
 	}
 
