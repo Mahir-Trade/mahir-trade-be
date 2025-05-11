@@ -463,6 +463,41 @@ func (a *AdminSvcImpl) UpdateMembershipProgramDate(ctx context.Context, req mode
 		return
 	}
 
+	startDate, err := a.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UpdateMembershipProgramDate] error while GetConfigByKey err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	startDateTime, err := time.Parse(time.DateOnly, startDate)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UpdateMembershipProgramDate] error while Parse startDate err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	endDateTime, err := time.Parse(time.DateOnly, req.EndDate)
+	if err != nil {
+		slog.ErrorContext(ctx, "[service][UpdateMembershipProgramDate] error while Parse endDate err: %v", err)
+		resp.Code = http.StatusInternalServerError
+		resp.Message = "Internal Server Error"
+		resp.Error = err.Error()
+		return
+	}
+
+	if endDateTime.Before(startDateTime) || endDateTime.Equal(startDateTime) {
+		err = errors.New("end_date must be after start date")
+		resp.Code = http.StatusBadRequest
+		resp.Message = "end_date must be after start date"
+		resp.Error = err.Error()
+		return
+	}
+
 	err = a.ConfigRepo.UpdateConfigByKey(utils.MembershipProgramEndDateConfig, req.EndDate, adminData.Username)
 	if err != nil {
 		slog.ErrorContext(ctx, "[service][StartMembershipProgram] error while UpdateConfigByKey err: %v", err)
