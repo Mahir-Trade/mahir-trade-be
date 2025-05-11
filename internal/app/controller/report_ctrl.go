@@ -110,11 +110,13 @@ func (r *ReportCtrlImpl) GetReports(ec echo.Context) error {
 	}
 
 	search := ec.QueryParam("search")
+	sortBy := ec.QueryParam("sortBy")
 
 	req := models.PaginationRequest{
 		Limit:  limit,
 		Page:   page,
 		Search: search,
+		SortBy: sortBy,
 	}
 
 	resp, err := r.ReportSvc.GetReports(ctx, req)
