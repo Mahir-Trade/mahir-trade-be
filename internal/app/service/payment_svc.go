@@ -317,7 +317,6 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 				}
 			} else {
 				userMembershipReq.ExpiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
-				fmt.Println("userMembershipReq.ExpiredAt", userMembershipReq.ExpiredAt)
 				_, err = p.UserMembershipRepo.CreateUserMembership(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while CreateUserMembership err : ", err)

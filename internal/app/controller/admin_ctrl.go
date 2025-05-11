@@ -259,12 +259,14 @@ func (ox *AdminCtrlImpl) GetAllUsers(ec echo.Context) error {
 	}
 
 	search := ec.QueryParam("search")
+	sortBy := ec.QueryParam("sortBy")
 	MembershipStatus := ec.QueryParam("membershipStatus")
 	req := models.PaginationRequest{
 		Limit:            limit,
 		Page:             page,
 		Search:           search,
 		MembershipStatus: MembershipStatus,
+		SortBy:           sortBy,
 	}
 
 	res, err := ox.AdminSvc.GetAllUsers(ctx, req)

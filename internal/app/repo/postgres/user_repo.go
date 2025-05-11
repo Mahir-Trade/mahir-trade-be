@@ -138,11 +138,19 @@ func (u *UserRepoImpl) GetAllUser(ctx context.Context, req models.PaginationRequ
 		case string(models.MembershipStatusExpired):
 			queryParams = append(queryParams, models.MembershipStatusExpired)
 		}
-
 		query += filterQuery
 	}
 
-	query += fmt.Sprintf(" ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
+	if req.SortBy == "" {
+		req.SortBy = "DESC"
+	}
+
+	sortDirection := strings.ToUpper(req.SortBy)
+	if sortDirection != "ASC" && sortDirection != "DESC" {
+		sortDirection = "DESC"
+	}
+
+	query += fmt.Sprintf(" ORDER BY u.created_at %s LIMIT $%d OFFSET $%d", sortDirection, len(queryParams)+1, len(queryParams)+2)
 	queryParams = append(queryParams, req.Limit, int((req.Page-1)*req.Limit))
 
 	rows, err := u.QueryContext(ctx, query, queryParams...)

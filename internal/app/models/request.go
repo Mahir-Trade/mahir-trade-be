@@ -5,6 +5,7 @@ type (
 		Limit            int64    `query:"limit" validate:"gte=1,lte=100"`
 		Page             int64    `query:"page" validate:"gte=1"`
 		Search           string   `query:"search" validate:"omitempty"`
+		SortBy           string   `query:"sortBy" validate:"omitempty"`
 		Filters          []string `query:"filters,omitempty"` // optional
 		ShowAll          bool     `query:"showAll"`
 		MembershipStatus string   `query:"membershipStatus,omitempty"`

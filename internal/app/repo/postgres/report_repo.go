@@ -69,6 +69,12 @@ func (r *ReportRepoImpl) GetReports(ctx context.Context, req models.PaginationRe
 		queryParams = append(queryParams, req.Search)
 	}
 
+	if req.SortBy != "" {
+		query += fmt.Sprintf(" ORDER BY updated_at %s", req.SortBy)
+	} else {
+		query += " ORDER BY updated_at DESC"
+	}
+
 	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(queryParams)+1, len(queryParams)+2)
 	queryParams = append(queryParams, req.Limit, offset)
 
