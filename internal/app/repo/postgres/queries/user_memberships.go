@@ -46,7 +46,7 @@ const (
 
 	QueryUpdateUserMembershipsByUserIDs = `
 		UPDATE user_memberships
-		SET is_membership_active = false, status 'EXPIRED', updated_by = $1, expired_at = NOW(), updated_at = NOW()
+		SET is_membership_active = false, status = 'EXPIRED', updated_by = $1, expired_at = NOW(), updated_at = NOW()
 	`
 
 	QueryBulkUpdateMembershipPreOrderActivation = `
