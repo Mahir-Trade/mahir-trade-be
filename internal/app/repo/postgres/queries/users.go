@@ -39,7 +39,6 @@ const (
 			case 
 				when um.is_membership_active = true then 'Premium'
 				when um.status = 'PRE_ORDER' then 'Pre-Order'
-				when um.id is not null then 'Premium'
 				else 'Standard'
 			end as account_type,
 			um.expired_at as membership_expired_date,
@@ -48,7 +47,7 @@ const (
 		FROM
 			users u
 		left join
-			user_memberships um on um.user_id = u.user_id AND um.expired_at > NOW()
+			user_memberships um on um.user_id = u.user_id
 		WHERE
 			u.deleted_at IS NULL
 	`
