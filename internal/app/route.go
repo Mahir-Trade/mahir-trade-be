@@ -88,7 +88,7 @@ func setRoute(
 	{
 		subModules.GET("/:sub_module_id", subModuleCtrl.GetSubModuleByID)
 		subModules.GET("", subModuleCtrl.GetSubModules)
-		subModules.GET("/module/:module_id", subModuleCtrl.GetSubModulesByModuleID)
+		subModules.GET("/module/:module_id", subModuleCtrl.GetSubModulesByModuleID, middleware.AuthAdminOrUser("user"))
 		subModules.POST("", subModuleCtrl.CreateSubModule, middleware.AuthAdminOrUser("admin"))
 		subModules.PATCH("/:sub_module_id", subModuleCtrl.UpdateSubModule, middleware.AuthAdminOrUser("admin"))
 		subModules.DELETE("/:sub_module_id", subModuleCtrl.SoftDeleteSubModule, middleware.AuthAdminOrUser("admin"))
