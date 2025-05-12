@@ -92,7 +92,7 @@ func setRoute(
 		subModules.POST("", subModuleCtrl.CreateSubModule, middleware.AuthAdminOrUser("admin"))
 		subModules.PATCH("/:sub_module_id", subModuleCtrl.UpdateSubModule, middleware.AuthAdminOrUser("admin"))
 		subModules.DELETE("/:sub_module_id", subModuleCtrl.SoftDeleteSubModule, middleware.AuthAdminOrUser("admin"))
-		subModules.POST("/mark-watched", subModuleCtrl.MarkSubModuleAsWatched)
+		subModules.POST("/mark-watched", subModuleCtrl.MarkSubModuleAsWatched, middleware.AuthAdminOrUser("user"))
 	}
 
 	admins := base.Group("/admins")
