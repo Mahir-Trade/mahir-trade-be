@@ -25,7 +25,7 @@ func NewSchedulerCtrl(impl SchedulerCtrlImpl) SchedulerCtrl {
 	wg := sync.WaitGroup{}
 	jobs := []infra.RegisterJobs{
 		{
-			Spec: "*/1 * * * *",
+			Spec: "59 23 * * *",
 			Cmd: func(ctx context.Context) {
 				err := impl.UserSvc.UpdateMembership(ctx)
 				if err != nil {

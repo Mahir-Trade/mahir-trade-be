@@ -55,16 +55,11 @@ func (u *UserMembershipRepoImpl) CreateUserMembership(ctx context.Context, req m
 }
 
 func (u UserMembershipRepoImpl) UpdateUserMembershipByUserID(ctx context.Context, req models.UserMembership) (err error) {
-	q := queries.QueryUpdateUserMembershipExpired
-	if req.ExclusiveExpiredAt != "" {
-		q += "SET exclusive_expired_at = $1, "
-	}
 	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.Status, req.UpdatedBy, req.UserID, req.ExclusiveExpiredAt)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][UpdateUserMembershipByUserID] error while ExecContext", "%v", err.Error())
 		return err
 	}
-
 	return nil
 }
 
