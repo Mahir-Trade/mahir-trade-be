@@ -290,19 +290,31 @@ func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context, membershi
 		return true, nil
 	}
 
-	if userMembership.ID > 0 && isPreOrder(userMembership) {
+	if userMembership.ID > 0 && isPreOrder(userMembership, startDate, endDate) {
 		return checkPreOrderValidity(ctx, userMembership, membershipPackage, endDate)
 	}
 
 	return false, nil
 }
 
-func isPreOrder(um models.UserMembership) bool {
-	return um.UserID > 0 && um.Status == models.MembershipStatusPreOrder
+func isPreOrder(um models.UserMembership, startDate, endDate time.Time) bool {
+	switch um.Status {
+	case models.MembershipStatusPreOrder:
+		return true
+	case models.MembershipStatusExpired:
+		expDate, errParse := time.Parse(time.RFC3339, um.ExpiredAt)
+		if errParse != nil {
+			return false
+		}
+		return expDate.After(startDate) && expDate.Before(endDate)
+	default:
+		return false
+	}
 }
 
 func parseDate(dateStr, layout string) (time.Time, error) {
 	return time.Parse(layout, dateStr)
+
 }
 
 func checkPreOrderValidity(ctx context.Context, userMembership models.UserMembership, pkg models.Package, endDate time.Time) (bool, error) {
