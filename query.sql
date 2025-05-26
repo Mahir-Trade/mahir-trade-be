@@ -283,3 +283,5 @@ CREATE TYPE membership_status AS ENUM (
 ALTER TABLE user_memberships ADD COLUMN status membership_status default 'UNKNOWN';
 
 CREATE INDEX idx_user_memberships_status ON user_memberships(status);
+
+ALTER TABLE user_memberships ADD COLUMN exclusive_expired_at timestamp;

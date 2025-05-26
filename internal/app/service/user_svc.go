@@ -748,7 +748,7 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		PhoneNumber:         user.PhoneNumber,
 		Username:            user.Username,
 		IsActive:            user.IsActive,
-		MembershipExpiredAt: userMembership.ExpiredAt,
+		MembershipExpiredAt: userMembership.ExclusiveExpiredAt,
 	}
 
 	if !userMembership.IsMembershipActive || userMembership.ID == 0 {

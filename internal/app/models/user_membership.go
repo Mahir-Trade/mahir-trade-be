@@ -27,6 +27,7 @@ type (
 		UserID             int64            `json:"user_id" validate:"required"`
 		PackageID          int64            `json:"package_id" validate:"required"`
 		ExpiredAt          string           `json:"expired_at" validate:"required"`
+		ExclusiveExpiredAt string           `json:"exclusive_expired_at,omitempty"`
 		IsMembershipActive bool             `json:"is_membership_active" validate:"required"`
 		Status             MembershipStatus `json:"status"`
 		CreatedBy          string           `json:"created_by,omitempty"`

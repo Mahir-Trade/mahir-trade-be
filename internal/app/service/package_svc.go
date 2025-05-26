@@ -318,13 +318,13 @@ func parseDate(dateStr, layout string) (time.Time, error) {
 }
 
 func checkPreOrderValidity(ctx context.Context, userMembership models.UserMembership, pkg models.Package, endDate time.Time) (bool, error) {
-	expiredAt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
+	exclusiveExpiredAt, err := time.Parse(time.RFC3339, userMembership.ExclusiveExpiredAt)
 	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Failed to parse expiredAt %s: %v", userMembership.ExpiredAt, err))
+		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Failed to parse expiredAt %s: %v", userMembership.ExclusiveExpiredAt, err))
 		return false, fmt.Errorf("failed to parse expiredAt: %w", err)
 	}
 
-	extendedExpiry := expiredAt.AddDate(0, int(pkg.DurationInMonth), 0)
+	extendedExpiry := exclusiveExpiredAt.AddDate(0, int(pkg.DurationInMonth), 0)
 	if extendedExpiry.After(endDate) {
 		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Extended expiry %s exceeds end date %s", extendedExpiry.Format(time.RFC3339), endDate.Format(time.RFC3339)))
 		return false, nil
