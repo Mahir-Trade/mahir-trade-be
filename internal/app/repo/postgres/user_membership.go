@@ -55,7 +55,11 @@ func (u *UserMembershipRepoImpl) CreateUserMembership(ctx context.Context, req m
 }
 
 func (u UserMembershipRepoImpl) UpdateUserMembershipByUserID(ctx context.Context, req models.UserMembership) (err error) {
-	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.Status, req.UpdatedBy, req.UserID)
+	q := queries.QueryUpdateUserMembershipExpired
+	if req.ExclusiveExpiredAt != "" {
+		q += "SET exclusive_expired_at = $1, "
+	}
+	_, err = u.ExecContext(ctx, queries.QueryUpdateUserMembershipExpired, req.ExpiredAt, req.IsMembershipActive, req.Status, req.UpdatedBy, req.UserID, req.ExclusiveExpiredAt)
 	if err != nil {
 		slog.ErrorContext(ctx, "[userMembershipRepoImpl][UpdateUserMembershipByUserID] error while ExecContext", "%v", err.Error())
 		return err
@@ -135,7 +139,7 @@ func (u *UserMembershipRepoImpl) GetUserMembershipExpired(ctx context.Context) (
 
 	for rows.Next() {
 		var userMembership models.UserMembership
-		err = rows.Scan(&userMembership.ID, &userMembership.UserID, &userMembership.ExpiredAt, &userMembership.IsMembershipActive)
+		err = rows.Scan(&userMembership.ID, &userMembership.UserID, &userMembership.ExpiredAt, &userMembership.IsMembershipActive, &userMembership.ExclusiveExpiredAt)
 		if err != nil {
 			slog.ErrorContext(ctx, "[userMembershipRepoImpl][GetUserMembershipExpired] error while Scan", "%v", err.Error())
 			return resp, err

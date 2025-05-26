@@ -798,38 +798,58 @@ func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
 	}
 
 	for _, userMembership := range userMemberships {
-		err = u.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, models.UserMembership{
-			UserID:             userMembership.UserID,
-			IsMembershipActive: false,
-			ExpiredAt:          userMembership.ExpiredAt,
-			Status:             models.MembershipStatusExpired,
-			UpdatedBy:          "CRONJOB",
-		})
+		expiratedAtTt, err := time.Parse(time.RFC3339, userMembership.ExpiredAt)
 		if err != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][UpdateUserMembership] err : %v", err))
-			break
-		}
-
-		discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, userMembership.UserID)
-		if err != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][GetDiscordAccountByUserID] err : %v", err))
-			break
-		}
-
-		if discordAccount.ID == 0 {
+			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][Parse] err : %v", err))
 			continue
 		}
+		if expiratedAtTt.Before(time.Now()) {
+			err = u.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, models.UserMembership{
+				UserID:             userMembership.UserID,
+				IsMembershipActive: false,
+				ExpiredAt:          userMembership.ExpiredAt,
+				Status:             models.MembershipStatusExpired,
+				ExclusiveExpiredAt: userMembership.ExclusiveExpiredAt,
+				UpdatedBy:          "CRONJOB",
+			})
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][UpdateUserMembership] err : %v", err))
+				continue
+			}
+			discordAccount, err := u.DiscordAccountrepo.GetDiscordAccountByUserID(ctx, userMembership.UserID)
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][GetDiscordAccountByUserID] err : %v", err))
+				continue
+			}
 
-		err = u.DiscordRepo.RemoveRoleFromMember(discord.DiscordRoleRequest{UserID: discordAccount.DiscordAccountID})
-		if err != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][RemoveRoleFromMember] userID: %d, err : %v", userMembership.UserID, err))
-			break
-		}
+			if discordAccount.ID == 0 {
+				continue
+			}
 
-		err = u.DiscordAccountrepo.DeleteDiscordAccountByUserID(ctx, discordAccount.ID)
-		if err != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][DeleteDiscordAccountByUserID] userID: %d, err : %v", userMembership.UserID, err))
-			break
+			err = u.DiscordRepo.RemoveRoleFromMember(discord.DiscordRoleRequest{UserID: discordAccount.DiscordAccountID})
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][RemoveRoleFromMember] userID: %d, err : %v", userMembership.UserID, err))
+				continue
+			}
+
+			err = u.DiscordAccountrepo.DeleteDiscordAccountByUserID(ctx, discordAccount.ID)
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][DeleteDiscordAccountByUserID] userID: %d, err : %v", userMembership.UserID, err))
+				continue
+			}
+		} else {
+			err = u.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, models.UserMembership{
+				UserID:             userMembership.UserID,
+				IsMembershipActive: false,
+				ExpiredAt:          userMembership.ExpiredAt,
+				Status:             models.MembershipStatusExpired,
+				ExclusiveExpiredAt: userMembership.ExclusiveExpiredAt,
+				UpdatedBy:          "CRONJOB",
+			})
+			if err != nil {
+				slog.ErrorContext(ctx, fmt.Sprintf("[service][UpdateMembership][UpdateUserMembership] err : %v", err))
+				continue
+			}
 		}
 	}
 

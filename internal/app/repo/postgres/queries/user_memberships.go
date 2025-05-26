@@ -49,10 +49,12 @@ const (
 	`
 
 	QueryGetUserMembershipExpired = `
-		SELECT id, user_id, expired_at, exclusive_expired_at, is_membership_active FROM user_memberships
-		WHERE expired_at < NOW()
-			AND is_membership_active = true
-			AND deleted_at IS NULL;
+		SELECT id, user_id, expired_at, is_membership_active, exclusive_expired_at 
+		FROM user_memberships
+		WHERE exclusive_expired_at IS NOT NULL
+		AND exclusive_expired_at < NOW()
+		AND is_membership_active = true
+		AND deleted_at IS NULL;
 	`
 
 	QueryUpdateUserMembershipsByUserIDs = `
