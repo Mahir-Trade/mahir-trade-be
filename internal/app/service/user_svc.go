@@ -839,7 +839,7 @@ func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
 		case !exclAtNull && exclAt.Before(now) && expiredAt.After(now):
 			update(false, models.MembershipStatusExpired)
 		case exclAtNull && expiredAt.After(now):
-			update(true, models.MembershipStatusActive)
+			update(false, models.MembershipStatusActive)
 		}
 
 		slog.InfoContext(ctx, fmt.Sprintf("[UpdateMembership] userID: %d, isMembershipActive: %t, expiredAt: %s, exclusiveExpiredAt: %s",
