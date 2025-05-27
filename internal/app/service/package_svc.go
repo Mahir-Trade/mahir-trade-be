@@ -290,31 +290,54 @@ func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context, membershi
 		return true, nil
 	}
 
-	if userMembership.ID > 0 && isPreOrder(userMembership, startDate, endDate) {
+	isEligible := isPreOrder(userMembership, today, startDate, endDate)
+	if userMembership.ID > 0 && isEligible {
 		return checkPreOrderValidity(ctx, userMembership, membershipPackage, endDate)
 	}
+	if !isEligible {
+		return false, nil
+	}
 
-	return false, nil
+	return true, nil
 }
 
-func isPreOrder(um models.UserMembership, startDate, endDate time.Time) bool {
+func isPreOrder(um models.UserMembership, today, startDate, endDate time.Time) bool {
 	switch um.Status {
 	case models.MembershipStatusPreOrder:
-		return true
-	case models.MembershipStatusExpired:
-		expDate, errParse := time.Parse(time.RFC3339, um.ExpiredAt)
-		if errParse != nil {
+		if um.IsMembershipActive {
 			return false
 		}
-		return expDate.After(startDate) && expDate.Before(endDate)
+
+		return true
+	case models.MembershipStatusExpired:
+		exlExpDate, errParse := time.Parse(time.RFC3339, um.ExclusiveExpiredAt)
+		if errParse != nil {
+			slog.Error("[isPreOrder] Failed to parse exclusiveExpiredAt %s: %v", um.ExclusiveExpiredAt, errParse)
+			return false
+		}
+
+		if exlExpDate.Before(startDate) {
+			expDate, errParse := time.Parse(time.RFC3339, um.ExpiredAt)
+			if errParse != nil {
+				slog.Error("[isPreOrder] Failed to parse expiredAt %s: %v", um.ExpiredAt, errParse)
+				return false
+			}
+			return expDate.After(startDate) && expDate.Before(endDate)
+		}
+
+		return exlExpDate.After(startDate) && exlExpDate.Before(endDate)
+	case models.MembershipStatusUnknown:
+		return true
 	default:
-		return false
+		if today.After(startDate) && today.Before(endDate) {
+			return false
+		}
+		return true
 	}
 }
 
 func parseDate(dateStr, layout string) (time.Time, error) {
 	return time.Parse(layout, dateStr)
-
 }
 
 func checkPreOrderValidity(ctx context.Context, userMembership models.UserMembership, pkg models.Package, endDate time.Time) (bool, error) {
