@@ -314,8 +314,19 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 					userMembershipReq.IsMembershipActive = true
 				}
 
-				userMembershipReq.ExclusiveExpiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
 				userMembershipReq.ExpiredAt = time.Now().AddDate(0, 0, 0).Format(formattedTime)
+
+				t, err := time.Parse(time.RFC3339, userMembership.ExclusiveExpiredAt)
+				if err != nil {
+					slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUser][Parse exclusiveExpiredAt] err : %v", err))
+				}
+
+				if !t.Equal(time.Unix(0, 0).UTC()) {
+					userMembershipReq.ExclusiveExpiredAt = t.AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
+				} else {
+					userMembershipReq.ExclusiveExpiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
+				}
+
 				err = p.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while UpdateUserMembershipByUserID err : ", err)
