@@ -38,6 +38,7 @@ type (
 		UserMembershipRepo postgres.UserMembershipRepo
 		GeneralLogRepo     postgres.GeneralLogRepo
 		PackageSvcImpl     PackageSvcImpl
+		ConfigRepo         postgres.ConfigRepo
 	}
 )
 
@@ -309,7 +310,11 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 			}
 
 			if userMembership.ID > 0 {
-				userMembershipReq.ExclusiveExpiredAt = userMembership.ExclusiveExpiredAt
+				if p.isCurrentMembershipProgramActive() {
+					userMembershipReq.IsMembershipActive = true
+				}
+
+				userMembershipReq.ExclusiveExpiredAt = time.Now().AddDate(0, int(packageData.DurationInMonth), 0).Format(formattedTime)
 				userMembershipReq.ExpiredAt = time.Now().AddDate(0, 0, 0).Format(formattedTime)
 				err = p.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, userMembershipReq)
 				if err != nil {
@@ -343,4 +348,38 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 	}
 
 	return nil
+}
+
+func (p *PaymentSvcImpl) isCurrentMembershipProgramActive() bool {
+	startDateStr, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramStartDateConfig)
+	if err != nil {
+		slog.Error(fmt.Sprintf("[isCurrentMembershipProgramActive] Failed to get %s: %v", utils.MembershipProgramStartDateConfig, err))
+		return false
+	}
+
+	endDateStr, err := p.ConfigRepo.GetConfigByKey(utils.MembershipProgramEndDateConfig)
+	if err != nil {
+		slog.Error(fmt.Sprintf("[isCurrentMembershipProgramActive] Failed to get %s: %v", utils.MembershipProgramEndDateConfig, err))
+		return false
+	}
+
+	if startDateStr == "" || endDateStr == "" {
+		slog.Error("[isCurrentMembershipProgramActive] Start or End date config is empty")
+		return true
+	}
+
+	startDate, err := parseDate(startDateStr, time.DateOnly)
+	if err != nil {
+		return false
+	}
+
+	endDate, err := parseDate(endDateStr, time.DateOnly)
+	if err != nil {
+		return false
+	}
+
+	today := time.Now().Truncate(24 * time.Hour)
+	if today.Before(startDate) || today.After(endDate) {
+		return true
+	}
 }
