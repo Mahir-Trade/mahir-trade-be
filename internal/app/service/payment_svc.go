@@ -365,7 +365,7 @@ func (p *PaymentSvcImpl) isCurrentMembershipProgramActive() bool {
 
 	if startDateStr == "" || endDateStr == "" {
 		slog.Error("[isCurrentMembershipProgramActive] Start or End date config is empty")
-		return true
+		return false
 	}
 
 	startDate, err := parseDate(startDateStr, time.DateOnly)
@@ -379,9 +379,9 @@ func (p *PaymentSvcImpl) isCurrentMembershipProgramActive() bool {
 	}
 
 	today := time.Now().Truncate(24 * time.Hour)
-	if today.Before(startDate) || today.After(endDate) {
+	if today.Before(endDate) && today.After(startDate) {
 		return true
 	}
 
-	return true
+	return false
 }
