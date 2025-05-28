@@ -287,6 +287,10 @@ func (p *PackageSvcImpl) CheckPackageAvailability(ctx context.Context, membershi
 
 	today := time.Now().Truncate(24 * time.Hour)
 	if today.Before(startDate) || today.After(endDate) {
+		if userMembership.Status == models.MembershipStatusPreOrder {
+			slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] User %d is not eligible for pre-order outside of the membership program dates", userMembership.UserID))
+			return false, nil
+		}
 		return true, nil
 	}
 
