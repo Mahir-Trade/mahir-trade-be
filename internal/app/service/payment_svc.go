@@ -382,4 +382,6 @@ func (p *PaymentSvcImpl) isCurrentMembershipProgramActive() bool {
 	if today.Before(startDate) || today.After(endDate) {
 		return true
 	}
+
+	return true
 }
