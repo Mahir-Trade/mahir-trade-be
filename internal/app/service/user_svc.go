@@ -751,6 +751,15 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		MembershipExpiredAt: userMembership.ExclusiveExpiredAt,
 	}
 
+	t, err := time.Parse(time.RFC3339, userMembership.ExclusiveExpiredAt)
+	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("[service][GetDetailUser][Parse exclusiveExpiredAt] err : %v", err))
+	}
+
+	if t.Equal(time.Unix(0, 0).UTC()) {
+		userDetailResp.MembershipExpiredAt = userMembership.ExpiredAt
+	}
+
 	if !userMembership.IsMembershipActive || userMembership.ID == 0 {
 		userDetailResp.IsMembershipActive = false
 	} else {

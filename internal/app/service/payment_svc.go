@@ -310,6 +310,7 @@ func (p *PaymentSvcImpl) MidtransPaymentLinkNotification(ctx context.Context, re
 
 			if userMembership.ID > 0 {
 				userMembershipReq.ExclusiveExpiredAt = userMembership.ExclusiveExpiredAt
+				userMembershipReq.ExpiredAt = time.Now().AddDate(0, 0, 0).Format(formattedTime)
 				err = p.UserMembershipRepo.UpdateUserMembershipByUserID(ctx, userMembershipReq)
 				if err != nil {
 					slog.ErrorContext(ctx, "[service][MidtransPaymentLinkNotification] while UpdateUserMembershipByUserID err : ", err)
