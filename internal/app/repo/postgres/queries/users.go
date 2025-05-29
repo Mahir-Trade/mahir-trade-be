@@ -41,7 +41,7 @@ const (
 				when um.status = 'PRE_ORDER' then 'Pre-Order'
 				else 'Standard'
 			end as account_type,
-			COALESCE(um.exclusive_membership_expired, um.expired_at) as membership_expired_date,
+			COALESCE(um.exclusive_expired_at, um.expired_at) as membership_expired_date,
 			u.created_at,
 			u.created_by
 		FROM
