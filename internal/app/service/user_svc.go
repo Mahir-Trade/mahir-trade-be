@@ -749,6 +749,7 @@ func (u *UserSvcImpl) GetDetailUser(ctx context.Context) (resp models.DefaultRes
 		Username:            user.Username,
 		IsActive:            user.IsActive,
 		MembershipExpiredAt: userMembership.ExclusiveExpiredAt,
+		MembershipStatus:    userMembership.Status,
 	}
 
 	t, err := time.Parse(time.RFC3339, userMembership.ExclusiveExpiredAt)
