@@ -206,7 +206,7 @@ func (ox *SubModuleCtrlImpl) GetSubModulesByModuleID(ec echo.Context) error {
 
 	limit, err := strconv.ParseInt(ec.QueryParam("limit"), 10, 64)
 	if err != nil {
-		limit = 10
+		limit = 20
 	}
 
 	page, err := strconv.ParseInt(ec.QueryParam("page"), 10, 64)

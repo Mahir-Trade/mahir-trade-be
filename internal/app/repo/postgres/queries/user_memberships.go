@@ -9,7 +9,7 @@ const (
 
 	QueryUpdateUserMembershipExpired = `
 		UPDATE user_memberships
-		SET expired_at = $1, is_membership_active = $2, status = $3, updated_by = $4, updated_at = NOW(), exclusive_expired_at = $6
+		SET expired_at = $1, is_membership_active = $2, status = $3, updated_by = $4, updated_at = NOW(), exclusive_expired_at = $6, package_id = $7
 		WHERE user_id = $5
 		RETURNING id
 	`

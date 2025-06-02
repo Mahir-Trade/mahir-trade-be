@@ -831,6 +831,7 @@ func (u *UserSvcImpl) UpdateMembership(ctx context.Context) (err error) {
 				ExpiredAt:          m.ExpiredAt,
 				Status:             status,
 				ExclusiveExpiredAt: m.ExclusiveExpiredAt,
+				PackageID:          m.PackageID,
 				UpdatedBy:          "CRONJOB",
 			})
 			if err != nil {
