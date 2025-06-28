@@ -309,6 +309,17 @@ func isPreOrder(um models.UserMembership, today, startDate, endDate time.Time) b
 	switch um.Status {
 	case models.MembershipStatusPreOrder:
 		if um.IsMembershipActive {
+			exclExpDate, err := parseDate(um.ExclusiveExpiredAt, time.RFC3339Nano)
+			if err != nil {
+				slog.Error("[isPreOrder] Failed to parse exclusiveExpiredAt %s: %v", um.ExclusiveExpiredAt, err)
+				return false
+			}
+			fiveDaysBefore := exclExpDate.AddDate(0, 0, -5)
+			if !today.Before(fiveDaysBefore) && !today.After(exclExpDate) {
+				slog.Info("[isPreOrder] User is eligible for re registration", "userID", um.UserID, "exclusiveExpiredAt", um.ExclusiveExpiredAt)
+				return true
+			}
+
 			return false
 		}
 
@@ -353,7 +364,7 @@ func checkPreOrderValidity(ctx context.Context, userMembership models.UserMember
 
 	extendedExpiry := exclusiveExpiredAt.AddDate(0, int(pkg.DurationInMonth), 0)
 	if extendedExpiry.After(endDate) {
-		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Extended expiry %s exceeds end date %s", extendedExpiry.Format(time.RFC3339), endDate.Format(time.RFC3339)))
+		slog.InfoContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Extended expiry %s exceeds end date %s", extendedExpiry.Format(time.RFC3339), endDate.Format(time.RFC3339)))
 		return false, nil
 	}
 
