@@ -356,6 +356,11 @@ func parseDate(dateStr, layout string) (time.Time, error) {
 }
 
 func checkPreOrderValidity(ctx context.Context, userMembership models.UserMembership, pkg models.Package, endDate time.Time) (bool, error) {
+	if userMembership.PackageID != pkg.ID {
+		slog.InfoContext(ctx, fmt.Sprintf("[CheckPackageAvailability] User %d is not eligible for package %d", userMembership.UserID, pkg.ID))
+		return false, nil
+	}
+
 	exclusiveExpiredAt, err := time.Parse(time.RFC3339, userMembership.ExclusiveExpiredAt)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("[CheckPackageAvailability] Failed to parse expiredAt %s: %v", userMembership.ExclusiveExpiredAt, err))
