@@ -49,7 +49,7 @@ const (
 	`
 
 	QueryGetUserMembershipExpired = `
-		SELECT id, user_id, expired_at, is_membership_active, COALESCE(exclusive_expired_at, '1970-01-01') AS exclusive_expired_at
+		SELECT id, user_id, expired_at, is_membership_active, COALESCE(exclusive_expired_at, '1970-01-01') AS exclusive_expired_at, package_id
 		FROM user_memberships
 		WHERE (
 			(exclusive_expired_at IS NOT NULL AND exclusive_expired_at < NOW())

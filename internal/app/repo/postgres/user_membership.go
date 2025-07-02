@@ -134,7 +134,7 @@ func (u *UserMembershipRepoImpl) GetUserMembershipExpired(ctx context.Context) (
 
 	for rows.Next() {
 		var userMembership models.UserMembership
-		err = rows.Scan(&userMembership.ID, &userMembership.UserID, &userMembership.ExpiredAt, &userMembership.IsMembershipActive, &userMembership.ExclusiveExpiredAt)
+		err = rows.Scan(&userMembership.ID, &userMembership.UserID, &userMembership.ExpiredAt, &userMembership.IsMembershipActive, &userMembership.ExclusiveExpiredAt, &userMembership.PackageID)
 		if err != nil {
 			slog.ErrorContext(ctx, "[userMembershipRepoImpl][GetUserMembershipExpired] error while Scan", "%v", err.Error())
 			return resp, err
