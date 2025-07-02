@@ -56,6 +56,7 @@ const (
 			OR
 			(exclusive_expired_at IS NULL AND expired_at < NOW())
 		)
+		AND is_membership_active is true
 		AND deleted_at IS NULL;
 	`
 
