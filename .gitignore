@@ -40,4 +40,4 @@ build
 *.env
 *.local
 *.swp
-*.swo     
+*.swo     "node_modules/" 
