@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # Reverse Proxy (Traefik)
+  # ===========================================
+  reverse-proxy:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--configFile=/traefik.yml"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - "./traefik.yml:/traefik.yml"
+      - "./logs/:/logs/"
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - proxy
+    restart: always
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  mahir-trade-db:
+    image: postgres:17
+    container_name: mahir-trade-db
+    restart: always
+    environment:
+      POSTGRES_DB: mahir-trade
+      POSTGRES_USER: MahirTrade
+      POSTGRES_PASSWORD: MahirTrade123-
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - proxy
+
+  # ===========================================
+  # Backend API (Express + TypeScript)
+  # ===========================================
+  mahir-trade-be:
+    build:
+      context: .
+      dockerfile: Dockerfile.express  # gunakan Dockerfile.express (Node version)
+    container_name: mahir-trade-be
+    restart: always
+    ports:
+      - "8089:5000" # Container expose 5000, published on host 8089
+    depends_on:
+      - mahir-trade-db
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PG_HOST: mahir-trade-db
+      PG_PORT: "5432"
+      GOOGLE_APPLICATION_CREDENTIALS: /app/service_account.json
+    volumes:
+      - ./service_account.json:/app/service_account.json:ro
+      - ~/.config/gcloud:/root/.config/gcloud
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mahir-trade-be.rule=Host(`api.mahirtrade.com`)"
+      - "traefik.http.routers.mahir-trade-be.entrypoints=websecure"
+      - "traefik.http.routers.mahir-trade-be.tls.certresolver=myresolver"
+      - "traefik.http.services.mahir-trade-be.loadbalancer.server.port=5000"
+    networks:
+      - proxy
+
+# ===========================================
+# Networks & Volumes
+# ===========================================
+networks:
+  proxy:
+    name: proxy
+    external: true
+
+volumes:
+  postgres_data:
+    driver: local
