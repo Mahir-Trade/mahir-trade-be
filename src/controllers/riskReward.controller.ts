@@ -25,18 +25,6 @@ export class RiskRewardController {
         } as DefaultResponse);
       }
 
-      // ✅ Validate each request item
-      for (let i = 0; i < body.length; i++) {
-        const errors = await validate(body[i]);
-        if (errors.length > 0) {
-          return res.status(400).json({
-            code: 400,
-            message: `Validation error on item index ${i}`,
-            error: errors,
-          } as DefaultResponse);
-        }
-      }
-
       // ✅ Call service
       const result = await this.risk_reward_service.risk_reward(body);
 

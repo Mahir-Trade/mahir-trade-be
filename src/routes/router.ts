@@ -197,4 +197,8 @@ router.delete(`/section-item/:id`, sectionItemController.deleteItem);
 /* ========================= ECONOMIC CALENDAR ========================= */
 router.get(`/economic-calendar/getAll`, economicCalendarController.getCalendar);
 
+/* ========================= Risk Reward ========================= */
+
+router.post("/risk-reward/calculate", riskRewardController.risk_reward);
+
 export default router;
