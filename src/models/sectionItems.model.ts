@@ -1,6 +1,6 @@
 export interface SectionItem {
   id?: string; // optional karena biasanya auto dari DB
-  section_id: string; // pakai snake_case sesuai Go struct
+  section_id?: string; // optional karena biasanya di-set dari luar
   title: string;
   subtitle?: string;
   subjek?: string;

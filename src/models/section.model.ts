@@ -6,6 +6,7 @@ import { SectionItem } from "./sectionItems.model";
 
 export interface Section {
   id?: string;
+  uuid?: string;
   slug?: string;
   type?: string;
   title: string;

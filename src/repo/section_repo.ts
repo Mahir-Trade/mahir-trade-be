@@ -7,6 +7,7 @@ import { Section } from "../models/section.model";
 import { SectionItem } from "../models/sectionItems.model";
 
 interface SectionWithItemRow {
+  section_uuid: string;
   section_id: string;
   section_slug: string;
   section_type: string;
@@ -86,6 +87,7 @@ export class SectionRepository {
 
       return {
         id: row.id,
+        uuid: row.uuid,
         slug: row.slug,
         type: row.type,
         title: row.title,
@@ -111,6 +113,7 @@ export class SectionRepository {
 
       return {
         id: row.id,
+        uuid: row.uuid,
         slug: row.slug,
         type: row.type,
         title: row.title,
@@ -139,6 +142,7 @@ export class SectionRepository {
         if (!sectionMap[row.section_id]) {
           sectionMap[row.section_id] = {
             id: row.section_id,
+            uuid: row.section_uuid,
             slug: row.section_slug,
             type: row.section_type,
             title: row.section_title,
@@ -199,6 +203,7 @@ export class SectionRepository {
 
       return {
         id: row.id,
+        uuid: row.uuid,
         title: row.title,
         subtitle: row.subtitle,
         created_at: row.created_at,
@@ -210,6 +215,14 @@ export class SectionRepository {
     }
   }
 
+  async findOneByUUID(uuid: string): Promise<Section | null> {
+    const result = await this.pg.query(
+      `SELECT * FROM sections WHERE uuid = $1 LIMIT 1;`,
+      [uuid]
+    );
+    return result.rows[0] || null;
+  }
+
   // --- GET BY ID ---
   async getByID(id: string): Promise<Section | null> {
     try {
@@ -219,6 +232,7 @@ export class SectionRepository {
 
       return {
         id: row.id,
+        uuid: row.uuid,
         slug: row.slug,
         type: row.type,
         title: row.title,

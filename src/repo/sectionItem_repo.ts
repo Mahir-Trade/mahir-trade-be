@@ -92,8 +92,6 @@ export class SectionItemRepository {
   // --- CREATE SECTION ITEM ---
   async create(item: SectionItem): Promise<SectionItem> {
     try {
-      const extra_data = JSON.stringify(item.extra_data || {});
-
       const result = await this.pg.query(SectionItemQueries.InsertSectionItem, [
         item.section_id,
         item.title,
@@ -102,7 +100,7 @@ export class SectionItemRepository {
         item.image_url,
         item.icon_url,
         item.order,
-        extra_data,
+        item.extra_data,
       ]);
 
       const row = result.rows[0];
@@ -116,7 +114,7 @@ export class SectionItemRepository {
         image_url: row.image_url ?? "",
         icon_url: row.icon_url ?? "",
         order: row.order ?? 0,
-        extra_data: JSON.parse(row.extra_data ?? "{}"),
+        extra_data: row.extra_data ?? {},
         created_at: row.created_at,
         updated_at: row.updated_at,
       };

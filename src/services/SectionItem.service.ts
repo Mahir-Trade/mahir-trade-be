@@ -26,23 +26,24 @@ export class SectionItemService {
   }
 
   // --- CREATE ITEM ---
+
   async createItem(req: CreateSectionItemRequest): Promise<SectionItem> {
-    // 1️⃣ Validasi apakah section ada
-    const section = await this.sectionRepo.findOneByID(req.section_id);
+    // 🧩 validasi UUID → ambil ID integer
+    const section = await this.sectionRepo.findOneByUUID(req.section_id);
     if (!section) {
-      throw new Error("Invalid section_id: not found");
+      throw new Error(`Invalid section UUID: ${req.section_id} not found`);
     }
 
-    // 2️⃣ Insert item baru
+    // 🧠 mapping ke relasi integer
     const item: SectionItem = {
-      section_id: req.section_id, // convert camelCase → snake_case
+      section_id: section.id, // ✅ gunakan ID dari hasil lookup
       title: req.title,
       subtitle: req.subtitle ?? "",
       subjek: req.subjek ?? "",
       image_url: req.image_url ?? "",
       icon_url: req.icon_url ?? "",
       order: req.order ?? 0,
-      extra_data: JSON.stringify(req.extra_data ?? {}),
+      extra_data: req.extra_data ?? {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

@@ -54,6 +54,7 @@ export const SectionQueries = {
   GetAllSectionsWithItems: `
   SELECT 
     s.id AS section_id,
+    s.uuid AS section_uuid,
     s.slug AS section_slug,
     s.type AS section_type,
     s.title AS section_title,

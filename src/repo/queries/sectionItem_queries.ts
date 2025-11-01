@@ -6,12 +6,12 @@ export const SectionItemQueries = {
   `,
 
   InsertSectionItem: `
-  INSERT INTO section_items (
-    section_id, title, subtitle, subjek, image_url, icon_url, "order", extra_data
-  )
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-  RETURNING id, section_id, title, subtitle, subjek, image_url, icon_url, "order", extra_data, created_at, updated_at;
-`,
+    INSERT INTO section_items (
+      section_id, title, subtitle, subjek, image_url, icon_url, "order", extra_data
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+    RETURNING id, section_id, title, subtitle, subjek, image_url, icon_url, "order", extra_data, created_at, updated_at;
+  `,
 
   GetItemsBySection: `
     SELECT id, section_id, title, subtitle, image_url, icon_url, "order", extra_data, created_at, updated_at
@@ -22,7 +22,7 @@ export const SectionItemQueries = {
 
   UpdateSectionItem: `
     UPDATE section_items
-    SET title = $1, subtitle = $2, subjek = $3, image_url = $4, icon_url = $5, "order" = $6, extra_data = $7, updated_at = now()
+    SET title = $1, subtitle = $2, subjek = $3, image_url = $4, icon_url = $5, "order" = $6, extra_data = $7::jsonb, updated_at = now()
     WHERE id = $8;
   `,
 

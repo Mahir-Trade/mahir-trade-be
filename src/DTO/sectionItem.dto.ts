@@ -2,6 +2,7 @@ import { SectionItem } from "../models/sectionItems.model";
 
 export interface SectionWithItems {
   id: string;
+  uuid: string;
   slug: string;
   type: string;
   title: string;

@@ -95,7 +95,6 @@ export class SectionItemController {
       } as DefaultResponse);
     }
   }
-
   // --- PUT /section-items/:id ---
   async updateItem(req: Request, res: Response): Promise<Response> {
     try {
